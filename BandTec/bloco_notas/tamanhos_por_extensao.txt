@@ -1,0 +1,1 @@
+Get-ChildItem C:/Users/mikazevedo/Desktop/bloco_notas -Filter *.txt -Recurse| %{$_.length}

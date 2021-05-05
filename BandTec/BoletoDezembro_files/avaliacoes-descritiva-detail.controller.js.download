@@ -1,0 +1,150 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduAvaliacoesModule
+ * @name eduAvaliacoesDescritivaController
+ * @object controller
+ *
+ * @created 2016-10-21 v12.1.15
+ * @updated
+ *
+ * @requires avaliacoes.module
+ *
+ * @dependencies
+ *
+ * @description Controller de avaliações descritivas
+ */
+define(['aluno/avaliacoes/avaliacoes.module',
+        'aluno/avaliacoes/avaliacoes.factory',
+        'utils/edu-enums.constants'
+    ],
+    function () {
+
+        'use strict';
+
+        angular
+            .module('eduAvaliacoesModule')
+            .controller('eduAvaliacoesDescritivaController', EduAvaliacoesDescritivaController);
+
+        EduAvaliacoesDescritivaController.$inject = [
+            '$rootScope',
+            '$scope',
+            '$filter',
+            '$sce',
+            'eduAvaliacoesFactory',
+            'eduEnumsConsts',
+            'eduUtilsService',
+        ];
+
+        function EduAvaliacoesDescritivaController($rootScope, $scope, $filter, $sce, EduAvaliacoesFactory, EduEnumsConsts, eduUtilsService) {
+
+            // *********************************************************************************
+            // *** Variables
+            // *********************************************************************************
+            var self = this;
+            self.legenda = $filter('i18n')('l-legenda-aval-desc', [], 'js/aluno/avaliacoes');
+            self.formataAlternativa = formataAlternativa;
+            self.tratamentoQuebraLinhasCampoString = tratamentoQuebraLinhasCampoString;
+            self.avalDescritivaNaoExecutada = false;
+            self.AvaliacoesDescritivas = {};
+            self.ehQuestaoAberta = ehQuestaoAberta;
+            self.ehQuestaoExclusivaOuMultipla = ehQuestaoExclusivaOuMultipla;
+
+            // *********************************************************************************
+            // *** Public Properties and Methods
+            // *********************************************************************************
+
+            init();
+
+            // *********************************************************************************
+            // *** Controller Initialize
+            // *********************************************************************************
+
+            function init() {
+                var params = {};
+                params['idTurmaDisc'] = $scope.parametros.idTurmaDisc;
+                params['codEtapa'] = $scope.parametros.codEtapa;
+                params['codAvaliacao'] = $scope.parametros.codProva;
+
+                EduAvaliacoesFactory.retornaAvaliacaoDescritiva(params, function (result) {
+                    if (angular.isDefined(result) && angular.isDefined(result.Id)) {
+                        self.AvaliacoesDescritivas = result;
+                    } else {
+                        self.avalDescritivaNaoExecutada = true;
+                    }
+                });
+            }
+
+            // *********************************************************************************
+            // *** Functions
+            // *********************************************************************************
+
+            /**
+             * Retorna se a questão é do tipo aberta
+             *
+             * @param {any} tipoQuestao - Tipo da questão
+             * @returns {Boolean} Tipo Aberta
+             */
+            function ehQuestaoAberta (tipoQuestao) {
+                if (tipoQuestao === EduEnumsConsts.TstTipoQuestaoEnum.Aberta) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            /**
+             * Retorna se a questão é do tipo exclusiva ou múltipla
+             *
+             * @param {any} tipoQuestao - Tipo da questão
+             * @returns {Boolean} Tipo Exclusiva ou Múltipla
+             */
+            function ehQuestaoExclusivaOuMultipla (tipoQuestao) {
+                if (tipoQuestao === EduEnumsConsts.TstTipoQuestaoEnum.Exclusiva ||
+                    tipoQuestao === EduEnumsConsts.TstTipoQuestaoEnum.Multipla) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            /**
+             * Formada a resposta da questão, para aceitar quebra de linha
+             *
+             * @param {any} texto - Resp. selecionada pelo usuário
+             */
+            function tratamentoQuebraLinhasCampoString(texto) {
+                if (texto) {
+                    return $sce.trustAsHtml(eduUtilsService.tratarQuebrasDeLinhaStringParaHTML(texto));
+                }
+                else {
+                    return '';
+                }
+            }
+
+            /**
+             * Formada a alternativa da questão, indicando se a mesma foi
+             * marcada ou não no momento da avaliação.
+             *
+             * @param {any} boolRespostaUsuario - Resp. selecionada pelo usuário (Tue ou False)
+             * @param {any} codOpcao - Cód. da opção
+             * @param {any} descricaoOpcao - Desc. da opção
+             */
+            function formataAlternativa (boolRespostaUsuario, codOpcao, descricaoOpcao) {
+                var alternativaFormatada = '';
+                if (EduEnumsConsts.TstTrueFalseEnum.True === boolRespostaUsuario) {
+                    alternativaFormatada = '<span class="label label-primary font-size-90perc">' + codOpcao + ':</span>' +
+                        '<strong>&nbsp;' + descricaoOpcao + '</strong>';
+                } else {
+                    alternativaFormatada = '<strong>' + codOpcao + ':</strong>' +
+                        '<span>&nbsp;' + descricaoOpcao + '</span>';
+                }
+                return $sce.trustAsHtml(alternativaFormatada);
+            }
+        }
+    }
+);

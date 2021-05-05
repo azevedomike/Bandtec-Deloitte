@@ -1,0 +1,163 @@
+/**
+* @license TOTVS | Portal - TOTVS Educacional v12.1.15
+* (c) 2015-2016 TOTVS S/A https://www.totvs.com
+* License: Comercial
+*/
+
+/**
+* @module eduRelatorioModule
+* @name EduRelatorioFactory
+* @object factory
+*
+* @created 2016-09-05 v12.1.15
+* @updated
+*
+*
+* @description Service utilizado para emissão de relatórios.
+*/
+
+define(['utils/reports/edu-relatorio.module',
+        'utils/edu-utils.service'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduRelatorioModule')
+        .service('eduRelatorioService', eduRelatorioService);
+
+    eduRelatorioService.$inject = ['$window',
+                                   '$filter',
+                                   '$state',
+                                   '$totvsresource',
+                                   'totvs.app-notification.Service',
+                                   'eduUtilsService'];
+
+    /**
+     * Serviço utilizado para geração e emissão de relatórios.
+     *
+     * @param {Object} $window - Objeto window
+     * @param {Object} $filter - Filtro angular
+     * @param {Object} $state - State
+     * @param {Object} $totvsresource - Resouce do THF
+     * @param {Object} appNotificationService - Serviço de notificação
+     * @param {Service} eduUtilsService - Utils
+     */
+    function eduRelatorioService($window,
+                                $filter,
+                                $state,
+                                $totvsresource,
+                                appNotificationService,
+                                eduUtilsService) {
+
+        var factory = $totvsresource.REST(CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/Relatorio/:idRelatorio/:codColRelatorio', {}, {});
+
+        var self = this;
+
+        self.emitirRelatorio = emitirRelatorio;
+        self.exibirOuSalvarPDF = exibirOuSalvarPDF;
+        self.exibirOuSalvarPDFParams = exibirOuSalvarPDFParams;
+
+        function emitirRelatorio (idRelatorio, codColRelatorio, filtrosAdicionais) {
+            appNotificationService.question({
+                    title: $filter('i18n')('l-imprimir' , [], ''),
+                    text: $filter('i18n')('l-confirma-impressao' , [], ''),
+                    size: 'sm',
+                    cancelLabel: 'l-no',
+                    confirmLabel: 'l-yes',
+                    callback: function (imprimir) {
+                        if (imprimir) {
+                            var parametros = {'idRelatorio' : idRelatorio, 'codColRelatorio' : codColRelatorio};
+
+                            if (filtrosAdicionais) {
+                                parametros = parametrosAdicionais(parametros, filtrosAdicionais);
+                            }
+
+                            factory.TOTVSQuery(parametros, function (result) {
+                                exibirOuSalvarPDF(result[0].Bytes);
+                            });
+                        }
+                    }
+            });
+        }
+
+        /**
+         * Carregar filtros adicionais do relatório
+         *
+         * @param {Object} parametros - Parâmetros execução do relatório.
+         * @param {Array} filtrosAdicionais - Lista de parâmetros opcionais.
+         * @returns
+         */
+        function parametrosAdicionais(parametros, filtrosAdicionais) {
+            if (filtrosAdicionais && parametros) {
+                parametros.parametrosAdicionais = filtrosAdicionais;
+            }
+            return parametros;
+        }
+
+        /**
+        * Exibir relatório em nova aba ou para download.
+        *
+        * @param {Blob} file - Blob do relatório.
+        */
+        function exibirOuSalvarPDF(file) {
+            if (file) {
+                try {
+                    var blob = eduUtilsService.b64toBlob(file, 'application/pdf');
+
+                    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                        window.navigator.msSaveOrOpenBlob(blob, 'relatorio.pdf');
+                    } else {
+                        var blobUrl = URL.createObjectURL(blob),
+                            popUpHabilitado =  $window.open(blobUrl);
+
+                        if (!popUpHabilitado) {
+                            throw 'Popup bloqueado!';
+                        }
+                    }
+                } catch (e) {
+                    console.log(e);
+                    eduUtilsService.abrirJanelaDownloadArquivo('relatorio.pdf', file);
+                }
+            } else {
+                appNotificationService.notify({
+                    type: 'warning',
+                    title: $filter('i18n')('l-titulo', [], 'js/utils/reports'),
+                    detail: $filter('i18n')('l-msg-erro-emissao', [], 'js/utils/reports')
+                });
+            }
+        }
+
+        /**
+        * Exibir relatório ou executar download.
+        *
+        * @param {Blob} file - Blob do relatório.
+        * @param {string} urlLoad - Define a forma de abertura do relatório
+        *  _blank - URL is loaded into a new window. This is default
+        *  _parent - URL is loaded into the parent frame
+        *  _self - URL replaces the current page
+        *  _top - URL replaces any framesets that may be loaded
+        */
+        function exibirOuSalvarPDFParams(file, urlLoad) {
+            if (file) {
+                try {
+                    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                        var blob = eduUtilsService.b64toBlob(file, 'application/pdf');
+                        window.navigator.msSaveOrOpenBlob(blob, 'relatorio.pdf');
+                    } else {
+                        var pdfAsDataUri = 'data:application/pdf;base64,' + file;
+                        $window.open(pdfAsDataUri, urlLoad);
+                    }
+                } catch (e) {
+                    console.log(e);
+                    eduUtilsService.abrirJanelaDownloadArquivo('relatorio.pdf', file);
+                }
+            } else {
+                appNotificationService.notify({
+                    type: 'warning',
+                    title: $filter('i18n')('l-titulo' , [], 'js/utils/reports'),
+                    detail : $filter('i18n')('l-msg-erro-emissao' , [], 'js/utils/reports')
+                });
+            }
+        }
+    }
+});

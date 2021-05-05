@@ -1,0 +1,11 @@
+Cores para o Gráfico:
+
+Deloitte Green
+
+R 134 G 188 B 37
+
+#86bc25
+
+Red (Functional Use)
+
+R218 G41 B28

@@ -1,0 +1,48 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+define(['aluno/notas/notas.module'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduNotasModule')
+        .factory('EduNotasFactory', EduNotasFactory);
+
+    EduNotasFactory.$inject = ['$totvsresource'];
+
+    function EduNotasFactory($totvsresource) {
+
+        var url = CONST_GLOBAL_URL_BASE_SERVICOS + "TOTVSEducacional/:method",
+            factory;
+
+        factory = $totvsresource.REST(url, {}, {});
+        factory.retornarNotasEtapaAluno = retornarNotasEtapaAluno;
+        factory.retornarDetalhesNotasAvaliacoes = retornarDetalhesNotasAvaliacoes;
+
+        return factory;
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        function retornarNotasEtapaAluno(parameters, callback) {
+
+            if (parameters['idTurmaDisc'] && parameters['idTurmaDisc'] < 0) {
+                parameters.idTurmaDisc = null;
+            }
+
+            parameters.method = 'NotaEtapa';
+            return factory.TOTVSGet(parameters, callback);
+        }
+
+        function retornarDetalhesNotasAvaliacoes(parameters, callback) {
+            parameters.method = 'AvaliacaoAluno';
+            factory.TOTVSQuery(parameters, callback);
+        }
+    }
+});

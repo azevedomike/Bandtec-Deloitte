@@ -1,0 +1,138 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+define(['aluno/financeiro/financeiro.module',
+        'aluno/financeiro/financeiro.route',
+        'utils/edu-utils.factory',
+        'utils/reports/edu-relatorio.service',
+        'widgets/widget.constants',
+        'utils/edu-constantes-globais.constants'],
+        function () {
+
+    'use strict';
+
+    angular
+        .module('eduFinanceiroModule')
+        .controller('EduFinanceiroController', EduFinanceiroController);
+
+    EduFinanceiroController.$inject = ['$scope',
+                                       '$rootScope',
+                                       'eduUtilsFactory',
+                                       'eduRelatorioService',
+                                       'eduWidgetsConsts',
+                                       'eduConstantesGlobaisConsts',
+                                       '$state',
+                                       'totvs.app-notification.Service',
+                                       'i18nFilter'];
+
+    function EduFinanceiroController($scope, $rootScope, eduUtilsFactory, eduRelatorioService, eduWidgetsConsts, eduConstantesGlobaisConsts, $state, totvsNotification, i18nFilter) {
+
+        // *********************************************************************************
+        // *** Variáveis
+        // *********************************************************************************
+
+        var self = this,
+            codRelatorioImpressao = null,
+            codColRelatorioImpressao = null;
+
+        // *********************************************************************************
+        // *** Propriedades públicas e métodos
+        // *********************************************************************************
+
+        self.exibeTab = exibeTab;
+        self.periodoLetivo = {};
+        self.periodoLetivoAlterado = periodoLetivoAlterado;
+        self.permiteImprimir = false;
+        self.imprimir = imprimir;
+        self.idFuncionalidade = eduWidgetsConsts.EduWidgetsFuncionalidade.Financeiro;
+
+        // *********************************************************************************
+        // *** Inicialização do controller
+        // *********************************************************************************
+        carregarParametrosEdu();
+                
+        /* Só executa o método init após carregar o objeto com as permissões do usuário */
+        var myWatch = $rootScope.$watch('objPermissions', function (data) {
+            if (data !== null) {
+                init();
+                myWatch();
+            }
+        });
+
+        /* Metodo de inicialização do controller */
+        function init() { }
+
+        /* Valida se o usuário tem permissão no Menu */
+        var permissionsWatch = $rootScope.$watch('objPermissions', function () {
+            if ($rootScope.objPermissions) {
+                if (!$rootScope.objPermissions.EDU_FINANCEIRO_EXTRATO && !$rootScope.objPermissions.EDU_FINANCEIRO_BENEFICIOS) {
+                    totvsNotification.notify({
+                        type: 'warning',
+                        title: i18nFilter('l-Atencao'),
+                        detail: i18nFilter('l-usuario-sem-permissao')
+                    });
+                    $state.go(eduConstantesGlobaisConsts.EduStateViewPadrao);
+                }
+
+                //destroy watch
+                permissionsWatch();
+            }
+        });
+
+        /* Carrega informações dos parâmetros do Educacional */
+        function carregarParametrosEdu () {
+            eduUtilsFactory.getParametrosTOTVSEducacionalAsync(function(parametros){
+                codRelatorioImpressao = parametros.CodRelatorioConsultaFinanceiroReports;
+                codColRelatorioImpressao = parametros.CodColRelatorioConsultaFinanceiroReports;
+                self.permiteImprimir = !!codRelatorioImpressao;
+            });
+        }
+
+        /* Evento de alteração do período letivo. Notifica controllers da alteração. */
+        function periodoLetivoAlterado () {
+            $scope.$broadcast('alteraPeriodoLetivoEvent');
+        }
+
+        /**
+         * Valida se aba deve ser exibida, conforme permissão do usuário
+         *
+         * @param {String} tabName - Nome da tab.
+         * @returns Permissão se aba deve ser visível ou não.
+         */
+        function exibeTab (tabName) {
+            if ($rootScope.objPermissions === null) {
+                return false;
+            }
+
+            switch (tabName) {
+                case 'boletos':
+                    return angular.isDefined($rootScope.objPermissions.EDU_FINANCEIRO_EXTRATO);
+                case 'beneficios':
+                    return angular.isDefined($rootScope.objPermissions.EDU_FINANCEIRO_BENEFICIOS);
+                case 'negociacao':
+                    //return angular.isDefined($rootScope.objPermissions.EDU_FINANCEIRO_NEGOCIACAOONLINE); // próxima versão
+                    return false;
+            }
+        }
+
+        /* Executa emissão do relatório associado a visão(Parametrizado no sistema). */
+        function imprimir() {
+            if (codRelatorioImpressao){
+                eduRelatorioService.emitirRelatorio(codRelatorioImpressao, codColRelatorioImpressao);
+            }
+        }
+       
+        /**
+        * Verifica se o objeto isDefined e diferente de nulo
+        * @param {any} objeto objeto a ser validado
+        * @returns
+        */
+        function isDefinedNotNull(objeto) {
+            return (angular.isDefined(objeto) && objeto !== null);
+        }
+    }
+});

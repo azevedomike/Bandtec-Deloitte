@@ -1,0 +1,73 @@
+
+BULK INSERT tbl_TesteBulk2 FROM 'C:\Users\mikazevedo\Desktop\Docs\BR02_01122016_31122016_ECD_v2020_1.txt' WITH (ROWTERMINATOR = '\n', FIELDTERMINATOR = '|',LASTROW = 595792)
+
+truncate table tbl_TesteBulk
+
+	
+select * from tbl_TesteBulk2
+
+DROP TABLE tbl_TesteBulk2
+
+
+CREATE TABLE tbl_TesteBulk2(
+col1 TEXT,
+col2 TEXT,
+col3 TEXT,
+col4 TEXT,
+col5 TEXT,
+col6 TEXT,
+col7 TEXT,
+col8 TEXT,
+col9 TEXT,
+col10 TEXT,
+col11 TEXT,
+col12 TEXT,
+col13 TEXT,
+col14 TEXT,
+col15 TEXT,
+col16 TEXT,
+col17 TEXT,
+col18 TEXT,
+col19 TEXT,
+col20 TEXT,
+col21 TEXT
+)
+
+
+
+
+
+
+
+
+-- Com varchar
+
+CREATE TABLE tbl_TesteBulk(
+col1 VARCHAR(MAX),
+col2 VARCHAR(MAX),
+col3 VARCHAR(MAX),
+col4 VARCHAR(MAX),
+col5 VARCHAR(MAX),
+col6 VARCHAR(MAX),
+col7 VARCHAR(MAX),
+col8 VARCHAR(MAX),
+col9 VARCHAR(MAX),
+col10 VARCHAR(MAX),
+col11 VARCHAR(MAX),
+col12 VARCHAR(MAX),
+col13 VARCHAR(MAX),
+col14 VARCHAR(MAX),
+col15 VARCHAR(MAX),
+col16 VARCHAR(MAX),
+col17 VARCHAR(MAX),
+col18 VARCHAR(MAX),
+col19 VARCHAR(MAX),
+col20 VARCHAR(MAX),
+col21 VARCHAR(MAX),
+col22 VARCHAR(MAX),
+col23 VARCHAR(MAX),
+col24 VARCHAR(MAX),
+col25 VARCHAR(MAX),
+col26 VARCHAR(MAX),
+
+)

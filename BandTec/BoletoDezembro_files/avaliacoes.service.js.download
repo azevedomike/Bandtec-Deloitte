@@ -1,0 +1,90 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduAvaliacoesModule
+ * @name eduAvaliacoesService
+ * @object service
+ *
+ * @created 2016-09-21 v12.1.15
+ * @updated
+ *
+ * @requires $modal
+ *
+ * @description Service utilizada para exibir as avaliacoes de avaliações da disciplina
+ */
+
+define(['aluno/avaliacoes/avaliacoes.module',
+        'aluno/avaliacoes/avaliacoes-detalhes.controller',
+        'aluno/avaliacoes/avaliacoes-descritiva-detail.controller'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduAvaliacoesModule')
+        .service('eduAvaliacoesService', EduAvaliacoesService);
+
+    EduAvaliacoesService.$inject = ['$modal'];
+
+    function EduAvaliacoesService($modal) {
+
+        this.exibirDetalhesAvaliacao = exibirDetalhesAvaliacao;
+
+        /**
+         * Exibe o modal com os detalhes da avaliação quando já se tem
+         * alguns dados na tela que está chamando
+         *
+         * @param {any} idTurmaDisc identificador da turma/disciplina
+         * @param {any} codEtapa código da etapa
+         * @param {any} tipoEtapa tipo da etapa
+         * @param {any} codProva código da prova
+         * @param {any} disciplina disciplina
+         * @param {any} nota valor da nota do aluno
+         * @param {any} situacaoResultado situação do resultado
+         * @param {any} codProvaTestis código da prova no Testis
+         * @param {any} codDisc código da disciplina
+         * @param {any} idPlanoAula identificador da aula
+         */
+        function exibirDetalhesAvaliacao(idTurmaDisc,
+            codEtapa,
+            tipoEtapa,
+            codProva,
+            disciplina,
+            nota,
+            situacaoResultado,
+            codProvaTestis,
+            codDisc,
+            idPlanoAula) {
+
+            var params = {
+                idTurmaDisc: idTurmaDisc,
+                codEtapa: codEtapa,
+                tipoEtapa: tipoEtapa,
+                codProva: codProva,
+                disciplina: unescape(disciplina),
+                nota: nota,
+                situacaoResultado: situacaoResultado,
+                codDisc: codDisc,
+                idPlanoAula: idPlanoAula
+            };
+
+            $modal.open({
+                templateUrl: EDU_CONST_GLOBAL_URL_BASE_APP + '/js/aluno/avaliacoes/avaliacoes-detalhes.view.html',
+                controller: 'eduAvaliacoesDetalhesController',
+                controllerAs: 'controller',
+                size: 'lg',
+                resolve: {
+                    parametros: function () {
+                        return params;
+                    }
+                },
+                backdrop: 'true'
+            });
+
+        }
+
+    }
+});

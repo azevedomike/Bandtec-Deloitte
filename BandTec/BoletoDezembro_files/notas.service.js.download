@@ -1,0 +1,56 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module notasModule
+ * @name NotasAvaliacoesService
+ * @object service
+ *
+ * @created 2016-09-21 v12.1.15
+ * @updated
+ *
+ * @requires $modal
+ *
+ * @description Service utilizada para exibir as notas de avaliações da disciplina
+ */
+
+define(['aluno/notas/notas.module',
+        'aluno/notas/notas-avaliacoes-detalhes.controller'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduNotasModule')
+        .service('EduNotasService', EduNotasService);
+
+    EduNotasService.$inject = ['$modal'];
+
+    function EduNotasService($modal) {
+
+        this.exibirNotasAvaliacoesDetalhes = exibirNotasAvaliacoesDetalhes;
+
+        function exibirNotasAvaliacoesDetalhes(idTurmaDisc) {
+
+            var params = {
+                idTurmaDisc: idTurmaDisc
+            };
+
+            $modal.open({
+                templateUrl: EDU_CONST_GLOBAL_URL_BASE_APP + '/js/aluno/notas/notas-avaliacoes-detalhes.view.html',
+                controller: 'eduNotasAvaliacoesDetalhesController',
+                controllerAs: 'controller',
+                size: 'lg',
+                resolve: {
+                    parametros: function () {
+                        return params;
+                    }
+                },
+                backdrop: 'true'
+            });
+        }
+
+    }
+});

@@ -1,0 +1,9 @@
+Vê espaço em disco:
+DOS:
+wmic logicaldisk get name, size
+
+wmic logicaldisk get name, size, freespace, caption
+
+
+PowerShell: 
+get-wmiobject win32_logicaldisk | ft name, {$_.size / 1Gb}

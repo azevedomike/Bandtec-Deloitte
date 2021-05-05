@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart</title>
+    <script src="./app.js"></script>
+</head>
+<body>
+
+    <canvas class="line-chart">
+
+    </canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.bundle.js"></script>
+
+    <script>
+var ctx = document.getElementsByClassName("line-chart");
+
+var chartGraph = new Chart(ctx,{
+    type: 'line',
+    data: {
+        labels: ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24"],
+        datasets: [{
+            label: "CPU",
+            data: [12, 31, 18, 27,45,65,67,54,34,56,78,89,78,67,56,45,87,100,43,54,56,78,98,56],
+            borderWidth: 6,
+            borderColor: 'rgba(77,166,253,0.85)',
+            backgroundColor: 'transparent',
+
+        }]
+    }
+});
+
+
+
+    </script>
+</body>
+</html>

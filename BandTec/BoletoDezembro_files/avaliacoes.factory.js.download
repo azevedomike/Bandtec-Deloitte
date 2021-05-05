@@ -1,0 +1,116 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduAvaliacoesModule
+ * @name AvaliacoesFactory
+ * @object factory
+ *
+ * @created 2016-09-05 v12.1.15
+ * @updated
+ *
+ * @requires eduAvaliacoesModule
+ *
+ * @dependencies AvaliacoesFactory
+ *
+ * @description Factory utilizada em Avaliações.
+ */
+
+define(['aluno/avaliacoes/avaliacoes.module'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduAvaliacoesModule')
+        .factory('eduAvaliacoesFactory', EduAvaliacoesFactory);
+
+    EduAvaliacoesFactory.$inject = ['$totvsresource'];
+
+    function EduAvaliacoesFactory($totvsresource) {
+
+        var url = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/:method',
+            factory;
+
+        factory = $totvsresource.REST(url, {}, {});
+        factory.retornaAvaliacoes = retornaAvaliacoes;
+        factory.retornaAvaliacoesTurmaDisc = retornaAvaliacoesTurmaDisc;
+        factory.retornaDetalhesAvaliacao = retornaDetalhesAvaliacao;
+        factory.retornaAvaliacaoDescritiva = retornaAvaliacaoDescritiva;
+        factory.retornaAvaliacaoInstitucional = retornaAvaliacaoInstitucional;
+        factory.retornaConstantesTestis = retornaConstantesTestis;
+
+        return factory;
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        /**
+         * Retorna as avaliações do aluno no período letivo
+         *
+         * @param {any} callback - Avaliações de um período letivo
+         */
+        function retornaAvaliacoes(callback) {
+            var parameters = {};
+            parameters.method = 'AvaliacaoAlunoPeriodoLetivo';
+            factory.TOTVSQuery(parameters, callback);
+        }
+
+        /**
+         * Retorna as avaliações do aluno em uma turma/disciplina
+         *
+         * @param {any} callback - Avaliações do aluno em uma turma/disciplina
+         */
+        function retornaAvaliacoesTurmaDisc(parameters, callback) {
+            parameters.method = 'AvaliacoesAlunoTurmaDisc';
+            factory.TOTVSQuery(parameters, callback);
+        }
+
+        /**
+         * Retorna todas as informações de uma Avaliação de uma Turma/Disciplina.
+         *
+         * @param {any} parameters - idTurmaDisc/codEtapa/tipoEtapa/codProva
+         * @param {any} callback - Detalhes da avaliação
+         */
+        function retornaDetalhesAvaliacao(parameters, callback) {
+            parameters.method = 'AvaliacaoTurmaDisc';
+            factory.TOTVSGet(parameters, callback);
+        }
+
+        /**
+         * Retorna os dados da avaliação descritiva do aluno
+         *
+         * @param {any} parameters - idTurmaDisc/codEtapa/codAvaliacao
+         * @param {any} callback - Avaliação descritiva
+         */
+        function retornaAvaliacaoDescritiva(parameters, callback) {
+            parameters.method = 'AvaliacaoDescritiva';
+            factory.TOTVSGet(parameters, callback);
+        }
+
+        /**
+         * Retorna os dados de avalição institucional do aluno
+         *
+         * @param {any} parameters - idTurmaDisc/codTurma/codAvaliacao
+         * @param {any} callback - avaliações institucionais
+         */
+        function retornaAvaliacaoInstitucional(parameters, callback) {
+            parameters.method = 'AvaliacoesInstitucionais';
+            factory.TOTVSGet(parameters, callback);
+        }
+
+        /**
+         * Retorna as constantes do sistema TESTIS
+         *
+         * @param {any} parameters - método utilizado
+         * @param {any} callback - constantes do testis
+         */
+        function retornaConstantesTestis(parameters, callback) {
+            parameters.method = 'AvaliacoesConstantesTestis';
+            factory.TOTVSGet(parameters, callback);
+        }
+    }
+});

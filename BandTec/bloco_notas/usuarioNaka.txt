@@ -1,0 +1,3 @@
+brsppnakakoge.atrame.deloitte.com\sqlexpress02
+sa
+123456

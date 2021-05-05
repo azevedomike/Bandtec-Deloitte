@@ -1,0 +1,165 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+define(['utils/edu-utils.module',
+        'totvs-desktop/totvs-desktop-contexto/totvs-desktop-contexto-curso.factory',], function () {
+
+    'use strict';
+
+    angular
+        .module('eduUtilsModule')
+        .factory('eduUtilsFactory', EduUtilsFactory);
+
+    EduUtilsFactory.$inject = ['$totvsresource', '$rootScope', 'TotvsDesktopContextoCursoFactory', ];
+
+    function EduUtilsFactory($totvsresource, $rootScope, TotvsDesktopContextoCursoFactory ) {
+
+        var self = this,
+            url = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional';
+
+        self.getListaOcupacoesAsync = getListaOcupacoesAsync;
+        self.getListaEstadosBRAsync = getListaEstadosBRAsync;
+        self.getListaEstadosAsync = getListaEstadosAsync;
+        self.getListaMunicipiosAsync = getListaMunicipiosAsync;
+        self.getListaPaisesAsync = getListaPaisesAsync;
+        self.getListaTiposResponsavelAsync = getListaTiposResponsavelAsync;
+        self.getListaTiposParentescoAsync = getListaTiposParentescoAsync;
+        self.getParametrosTOTVSGestaoPessoasAsync = getParametrosTOTVSGestaoPessoasAsync;
+        self.getParametrosTOTVSFolhaPagamentoAsync = getParametrosTOTVSFolhaPagamentoAsync;
+        self.getParametrosTOTVSEducacionalAsync = getParametrosTOTVSEducacionalAsync;
+        self.getParametrosTOTVSFinanceiroAsync = getParametrosTOTVSFinanceiroAsync;
+        self.getEnderecoCEPAsync = getEnderecoCEPAsync;
+        self.getParametroGlobal = getParametroGlobal;
+        self.useCache = true;
+
+        return self;
+
+        // Retorna lista do cadastro básico de ocupações
+        function getListaOcupacoesAsync(callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/Ocupacao');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        // Retorna Retorna lista do cadastro básico de países
+        function getListaPaisesAsync(callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/Pais');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        // Retorna Retorna lista do cadastro básico de estados (UF) do Brasil (exclusivamente)
+        function getListaEstadosBRAsync(callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/EstadoBR');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        // Retorna Retorna lista do cadastro básico de estados (UF)
+        function getListaEstadosAsync(idPAIS, callback) {
+
+            var parametros = {};
+            parametros.idPAIS = idPAIS;
+
+            var factory = getInstanciaFactory('/CadastroBasico/Estado/:idPAIS');
+            return factory.TOTVSGet(parametros, callback);
+        }
+
+        // Retorna lista do cadastro básico de municípios
+        function getListaMunicipiosAsync(idPAIS, codETD, callback) {
+
+            var parametros = {};
+            parametros.idPAIS = idPAIS;
+            parametros.codETD = codETD;
+
+            var factory = getInstanciaFactory('/CadastroBasico/Municipio/:idPAIS/:codETD');
+            return factory.TOTVSGet(parametros, callback);
+        }
+
+        // Retorna lista do cadastro básico de tipos de responsáveis
+        function getListaTiposResponsavelAsync(callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/TipoResponsavel');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        // Retorna lista do cadastro básico de tipos de parentesco
+        function getListaTiposParentescoAsync(callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/TipoParentesco');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        //Retorna alguns parâmetros do módulo Rhu - TOTVS Gestão de Pessoas, utilizado no TOTVS Educacional
+        function getParametrosTOTVSGestaoPessoasAsync(callback) {
+            var factory = getInstanciaFactory('/Parametrizacao/TotvsGestaoPessoas');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        //Retorna alguns parâmetros do módulo Fop - TOTVS Folha de Pagamento, utilizado no TOTVS Educacional
+        function getParametrosTOTVSFolhaPagamentoAsync(callback) {
+            var factory = getInstanciaFactory('/Parametrizacao/TotvsFolhaPagamento');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        //Retorna alguns parâmetros do módulo Fin - Totvs Financeiro, utilizados no TOTVS Educacional
+        function getParametrosTOTVSFinanceiroAsync(callback) {
+            var factory = getInstanciaFactory('/Parametrizacao/TotvsFinanceiro');
+            return factory.TOTVSGet({}, callback);
+        }
+
+        //Retorna alguns parâmetros do módulo Edu - TOTVS Educacional
+        function getParametrosTOTVSEducacionalAsync(callback) {
+            var factory = getInstanciaFactory('/Parametrizacao/TotvsEducacional');
+
+            if (angular.isDefined($rootScope.ListaContextosDisponiveisAluno)) {
+
+                var cursoAtual = TotvsDesktopContextoCursoFactory.getCursoSelecionado().cursoSelecionado;
+                
+                $rootScope.ListaContextosDisponiveisAluno.find(function (contexto) {
+                    if (contexto.CodColigada === cursoAtual.CODCOLIGADA &&
+                        contexto.CodFilial === cursoAtual.CODFILIAL &&
+                        contexto.CodTipoCurso === cursoAtual.CODTIPOCURSO &&
+                        contexto.IdPerlet === cursoAtual.IDPERLET &&
+                        contexto.IdHabilitacaoFilial === cursoAtual.IDHABILITACAOFILIAL) {
+
+                        if (!angular.isDefined(contexto['EduParams'])) {
+                            factory.TOTVSGet({}, callback, {}, self.useCache).then(function(data) {
+                                if (self.useCache === true) {
+                                    self.useCache = !self.useCache;
+                                }
+
+                                contexto['EduParams'] = data;
+                                    return data;
+                            });
+                        } else {
+                            if (angular.isFunction(callback)) {
+                                callback(contexto['EduParams']);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        //Retorna o objeto factory a partir da URL padrão juntamento ao complemeto
+        function getInstanciaFactory(urlComplemento) {
+            var urlCompletaServico = url + urlComplemento;
+            return $totvsresource.REST(urlCompletaServico, {}, {});
+        }
+
+        // Retorna informações do endereço a partir do CEP
+        function getEnderecoCEPAsync(cep, callback) {
+            var factory = getInstanciaFactory('/CadastroBasico/CEP');
+            return factory.TOTVSQuery({'cep': cep}, callback);
+        }
+
+         // Retorna parametro global
+        function getParametroGlobal(nomeCampo, callback) {
+            var parametros = {};
+            parametros.nomeCampo = nomeCampo;
+
+            var factory = getInstanciaFactory('/Parametrizacao/Globais');
+            return factory.TOTVSQuery(parametros, callback);
+        }
+    }
+});

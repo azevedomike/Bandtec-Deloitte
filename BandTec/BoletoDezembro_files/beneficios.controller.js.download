@@ -1,0 +1,146 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+/**
+* @module eduBeneficiosModule
+* @name EduBeneficiosController
+* @object controller
+*
+* @created 26/09/2016 v12.1.15
+* @updated
+*
+* @requires Beneficios.module
+*
+* @dependencies eduBeneficiosFactory
+*
+* @description Controller do Beneficios
+*/
+define(['aluno/financeiro/financeiro.module',
+        'aluno/financeiro/financeiro.service'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduFinanceiroModule')
+        .controller('EduBeneficiosController', EduBeneficiosController);
+
+    EduBeneficiosController.$inject = ['$scope',
+                                       'EduFinanceiroService',
+                                       'i18nFilter'];
+
+    function EduBeneficiosController($scope,
+                                     EduFinanceiroService,
+                                     i18nFilter) {
+        // *********************************************************************************
+        // *** Variáveis
+        // *********************************************************************************
+
+        var self = this;
+
+        // *********************************************************************************
+        // *** Propriedades públicas e métodos
+        // *********************************************************************************
+
+        self.listaBeneficios = [];
+        self.getClasseStatusBolsa = getClasseStatusBolsa;
+        self.listaServicos = [];
+        self.servicoSelecionado = -1;
+
+        // *********************************************************************************
+        // *** Inicialização do controller
+        // *********************************************************************************
+
+        // Assina o evento de alteração de período
+        $scope.$on('alteraPeriodoLetivoEvent', getBeneficios);
+
+        init();
+
+        /**
+         * Metodo de inicialização do controller.
+         */
+        function init() {
+            getBeneficios();
+        }
+
+        /**
+         * Preenche lista de benefícios do aluno.(Bolsas)
+         */
+        function getBeneficios() {
+            EduFinanceiroService.retornarBeneficios(function (beneficios) {
+
+                carregarListaServicos(beneficios);
+
+                var beneficiosOrdenados = ordenarBeneficios(beneficios);
+                self.listaBeneficios = beneficiosOrdenados;
+            });
+        }
+
+        /**
+         * Preenche lista de serviços para serem apresentados no combobox.
+         *
+         * @param {any} beneficios - Lista de benefícios do aluno
+         */
+        function carregarListaServicos(beneficios) {
+
+            self.listaServicos = [];
+
+            //Adiciona item default ao combobox
+            self.listaServicos.push({codServico:-1, nome:i18nFilter('l-todos-servicos', [], 'js/aluno/financeiro/beneficios')});
+            self.servicoSelecionado = self.listaServicos[0].codServico;
+
+            var servicos = '';
+            if (beneficios && beneficios.length > 0) {
+                beneficios.forEach(function (bolsa) {
+                    if (servicos.indexOf('$' + bolsa.codServico + '$;') === -1) {
+                        servicos += '$' + bolsa.codServico + '$;';
+                        self.listaServicos.push({codServico:bolsa.codServico, nome:bolsa.servico});
+                    }
+                });
+            }
+        }
+
+        /**
+         * Ordena lista de bolsas para melhor visualização
+         *
+         * @param {Array} listaBeneficios - Lista de bolsas do aluno.
+         * @returns Lista de benefícios ordenados
+         */
+        function ordenarBeneficios (listaBeneficios) {
+
+            var bolsasAtivas = [],
+                bolsasInativas = [];
+
+            if (listaBeneficios && listaBeneficios.length > 0) {
+                listaBeneficios.forEach(function (bolsa) {
+                    if (bolsa.ativa === 'N') {
+                        bolsasInativas.push(bolsa);
+                    }
+                    else {
+                        bolsasAtivas.push(bolsa);
+                    }
+                });
+            }
+            return bolsasAtivas.concat(bolsasInativas);
+        }
+
+        /**
+         * Função de definição do status da bolsa
+         *
+         * @param {Object} bolsa - bolsa a ser verificado o status
+         * @returns classe CSS do status
+         */
+        function getClasseStatusBolsa(bolsa) {
+            var classeLegenda = 'legenda-verde legenda-content-1 ';
+
+            if (bolsa.ativa === 'N') {
+                classeLegenda = 'legenda-vermelho legenda-content-2 ';
+            }
+
+            return ' legenda ' + classeLegenda;
+        }
+    }
+});

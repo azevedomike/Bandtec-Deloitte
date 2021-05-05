@@ -1,0 +1,43 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.22
+ * (c) 2015-2018 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+/**
+* @module eduMainModule
+* @name EduMainController
+* @object controller
+*
+* @created 08/10/2018 v12.1.22
+* @updated
+*
+* @requires main.module
+*
+* @dependencies eduMainFactory
+*
+* @description Controller do Main
+*/
+define(['aluno/main/main.module',
+        'aluno/main/main.factory'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduMainModule')
+        .controller('EduMainController', EduMainController);
+
+    EduMainController.$inject = ['eduMainFactory', '$rootScope'];
+
+    /**
+     * Controller para a página principal do portal
+     */
+    function EduMainController(eduMainFactory, $rootScope) {
+        init();
+
+        function init() {
+          $rootScope.startApp = true;
+        }
+    }
+});

@@ -1,0 +1,131 @@
+define(['aluno/avaliacoes/avaliacoes.module',
+        'aluno/aulas/aulas.factory',
+        'aluno/disciplina/disciplina.factory'
+    ], function () {
+
+    'use strict';
+
+    angular
+        .module('eduAvaliacoesModule')
+        .controller('eduAvaliacoesDetalhesController', eduAvaliacoesDetalhesController);
+
+    eduAvaliacoesDetalhesController.$inject = ['$scope',
+        '$window',
+        '$location',
+        '$filter',
+        'eduAvaliacoesFactory',
+        'parametros',
+        'eduAulasFactory',
+        'eduDisciplinaFactory',
+        '$modalInstance',
+        '$rootScope',
+        '$state'
+    ];
+
+    function eduAvaliacoesDetalhesController($scope,
+        $window,
+        $location,
+        $filter,
+        eduAvaliacoesFactory,
+        parametros,
+        eduAulasFactory,
+        eduDisciplinaFactory,
+        $modalInstance,
+        $rootScope,
+        $state) {
+
+        // *********************************************************************************
+        // *** Variables
+        // *********************************************************************************
+
+        var self = this;
+
+        // *********************************************************************************
+        // *** Public Properties and Methods
+        // *********************************************************************************
+
+        $scope.parametros = parametros;
+        self.showtabAvalDescritiva = false;
+        self.avaliacao = {};
+        self.paramAvaliacao = {};
+        self.close = close;
+        self.VerAula = VerAula;
+        self.VerDisciplina = VerDisciplina;
+        self.modalInstance = $modalInstance;
+        init();
+
+        // *********************************************************************************
+        // *** Controller Initialize
+        // *********************************************************************************
+
+        function init() {
+            var param = {};
+
+            // se recebeu o idTurmaDisc, exibe os dados apenas desta disciplina
+            self.hideVerDisciplina = ($state.params.idTurmaDisc && $state.params.idTurmaDisc !== -1);
+
+            param['idTurmaDisc'] = parametros.idTurmaDisc;
+            param['codEtapa'] = parametros.codEtapa;
+            param['tipoEtapa'] = parametros.tipoEtapa;
+            param['codProva'] = parametros.codProva;
+            self.paramAvaliacao = parametros;
+
+            var myWatch = $rootScope.$watch('objPermissions', function (data) {
+                if (data !== null) {
+                    self.hideVerAula = (parametros.idPlanoAula == null || !angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_PLANOAULA));
+                    myWatch();
+                }
+            });
+
+            exibeAvaliacaoInfo(param);
+        }
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+        function exibeAvaliacaoInfo(parametros) {
+
+            eduAvaliacoesFactory.retornaDetalhesAvaliacao(parametros, function (result) {
+
+                self.avaliacao = result;
+
+                if (self.avaliacao.SProvas.length > 0) {
+
+                    // preenche dados passados pela tela que chamou o modal
+                    self.avaliacao.SProvas[0].situacaoResultado = self.paramAvaliacao.situacaoResultado;
+                    self.avaliacao.SProvas[0].nota = self.paramAvaliacao.nota;
+                    if (self.paramAvaliacao.DISCIPLINA != null) {
+                        self.avaliacao.SProvas[0].DISCIPLINA = self.paramAvaliacao.disciplina;
+                    }
+
+                }
+                self.showtabAvalDescritiva = exibeTabAvalDescritiva();
+            });
+        }
+
+        /**
+         * Caso a avaliação seja descritiva, habilita a tab para exibir o resultado.
+         *
+         * @returns bool - se existe prova no testis
+         */
+        function exibeTabAvalDescritiva () {
+            if (self.avaliacao.SProvas[0].CODPROVATESTIS === null) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        function VerAula() {
+            eduAulasFactory.exibirInfoAula(parametros.idTurmaDisc, parametros.idPlanoAula, function () {
+                $modalInstance.dismiss();
+            });
+        }
+
+        function VerDisciplina() {
+            eduDisciplinaFactory.ExibirInfoDisciplina(parametros.idTurmaDisc, parametros.codDisc, function () {
+                $modalInstance.dismiss();
+            });
+        }
+    }
+});

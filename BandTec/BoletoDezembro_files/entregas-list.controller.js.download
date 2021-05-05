@@ -1,0 +1,348 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.16
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+define(['aluno/entregas/entregas.module',
+    'aluno/entregas/entregas.factory',
+    'utils/edu-enums.constants',
+    'utils/edu-utils.factory',
+    'utils/edu-utils.service',
+    'utils/reports/edu-relatorio.service',
+    'widgets/widget.constants'
+], function () {
+
+    'use strict';
+
+    angular
+        .module('eduEntregasModule')
+        .controller('eduEntregasController', EduEntregasController);
+
+    EduEntregasController.$inject = [
+        'TotvsDesktopContextoCursoFactory',
+        'eduEntregasFactory',
+        'eduEnumsConsts',
+        'totvs.app-notification.Service',
+        'i18nFilter',
+        '$state',
+        'eduUtilsFactory',
+        'eduRelatorioService',
+        '$scope',
+        '$filter',
+        'MatriculaDisciplinaService',
+        'TotvsDesktopContextoCursoFactory',
+        'eduUtilsService'
+    ];
+
+    function EduEntregasController(
+        objContextoCursoFactory,
+        EduEntregasFactory,
+        EduEnumsConsts,
+        totvsNotification,
+        i18nFilter,
+        $state,
+        eduUtilsFactory,
+        eduRelatorioService,
+        $scope,
+        $filter,
+        MatriculaDisciplinaService,
+        TotvsDesktopContextoCursoFactory,
+        eduUtilsService) {
+
+        var self = this;
+
+        // vars
+        var codRelatorioImpressao = null;
+        self.model = [];
+        self.modelFull = [];
+        self.modelLength = 0;
+        self.modelFullLength = 0;
+        self.limitAt = 20; // limite de resultados para paginação
+        self.permiteImprimir = false;
+        self.extArqEntregaTrab = '';
+        self.tamanhoMaximoEntrega = 0;
+        self.disciplina = -1;
+        self.etapa = -1;
+        self.tipoEtapa = 'N'; // notas
+        self.refresh = false;
+        self.ehTelaDisc = false;
+        self.reloadData = false; //False, caso não tenha paginação, e True com paginação, quando selecionar uma Disciplina carrega os dados novamente do servidor
+        
+        // methods
+        self.search = search;
+        self.getEntregas = getEntregas;
+        self.disciplinaAlterada = disciplinaAlterada;
+        self.etapaAlterada = etapaAlterada;
+        self.getLegendaTitle = getLegendaTitle;
+        self.verificaStatusPermiteAcao = verificaStatusPermiteAcao;
+        self.abrirModalUploadArquivos = abrirModalUploadArquivos;
+        self.enviarArquivo = enviarArquivo;
+        self.questionExcluirArquivo = questionExcluirArquivo;
+        self.baixarArquivo = baixarArquivo;
+        self.getLabelEnviarArquivo = getLabelEnviarArquivo;
+        self.abrirDetalhesDisciplina = abrirDetalhesDisciplina;
+
+        self.imprimir = imprimir;
+
+        // init
+        init();
+
+        function init() {
+            carregarParametrosEdu();
+
+            if ($state.params.idTurmaDisc && $state.params.idTurmaDisc !== -1) {
+                self.disciplina = $state.params.idTurmaDisc;
+                self.ehTelaDisc = true;
+            }
+
+            self.search(false);
+        }
+
+        // public functions
+        function search(isMore) {
+            var startAt = 0;
+            if (isMore) {
+                startAt = self.modelFull.length;
+            } else {
+                self.model = [];
+            }
+            self.getEntregas(startAt);
+        }
+
+        function getEntregas(startAt) {
+            EduEntregasFactory.findRecords(self.disciplina, startAt, self.limitAt, function (result) {
+                if (result) {
+                    angular.forEach(result, function (value) {
+                        if (value && value.$length) {
+                            self.modelLength = value.$length;
+                            self.modelFullLength = value.$length;
+                        }
+                        self.model.push(value);
+                        self.modelFull.push(value);
+                    });
+
+                    if (self.limitAt <= self.modelFullLength)
+                        self.reloadData =  true;
+
+                    etapaAlterada();
+                }
+            });
+        }
+
+        function clearObjectModel() {
+            self.model = [];
+            self.modelFull = [];
+            self.modelLength = 0;
+            self.modelFullLength = 0;
+        }
+
+        function disciplinaAlterada(idTurmaDisc, idTurmaDiscMista) {
+
+            if (self.reloadData) {
+                //sempre recarregar os dados do banco de dados
+                clearObjectModel();
+                self.search(true);
+            }
+            else
+            {    
+                // todas
+                if (angular.isDefined(idTurmaDisc) && idTurmaDisc === -1) {
+                    self.model = angular.copy(self.modelFull);
+                    self.modelLength = self.modelFullLength;
+                } else if (angular.isDefined(idTurmaDisc) && idTurmaDisc !== null) {
+                    self.model = $filter('filter')(self.modelFull, { 'IDTURMADISC': idTurmaDisc }, true);
+                    self.modelLength = self.model.length;
+                } else if (angular.isDefined(idTurmaDiscMista) && idTurmaDiscMista !== null) {
+                    self.model = $filter('filter')(self.modelFull, { 'IDTURMADISC': idTurmaDiscMista }, true);
+                    self.modelLength = self.model.length;
+                }
+
+                etapaAlterada();
+            }
+        }
+
+        function etapaAlterada() {
+
+            if (self.disciplina === -1) {
+                self.etapa = -1;
+                return;
+            }
+
+            if ($filter('filter')(self.modelFull, { 'CODETAPA': self.etapa }, true).length == 0) {
+                self.etapa = -1;
+            }
+
+            // todas
+            if (angular.isDefined(self.etapa) && self.etapa === -1) {
+                self.model = $filter('filter')(self.modelFull, { 'IDTURMADISC': self.disciplina }, true);
+                self.modelLength = self.model.length;
+            } else if (angular.isDefined(self.etapa) && self.etapa !== null) {
+                self.model = $filter('filter')(self.modelFull, { 'CODETAPA': self.etapa, 'IDTURMADISC': self.disciplina }, true);
+                self.modelLength = self.model.length;
+            }
+        }
+
+        function getLegendaTitle(status) {
+            switch (status) {
+                case 0: // pendente
+                    return 'legenda-amarelo legenda-content-3';
+                case 1: // enviado
+                    return 'legenda-verde legenda-content-1';
+                case 2: // vencido
+                    return 'legenda-vermelho legenda-content-2';
+                default:
+                    return '';
+            }
+        }
+
+        function verificaStatusPermiteAcao(status, acao) {
+            // status vencido
+            if ((acao === 'delete' || acao === 'post') && status === 2) {
+                return false;
+            }
+            // status pendente
+            if ((acao === 'delete' || acao === 'get') && status === 0) {
+                return false;
+            }
+            return true;
+        }
+
+        function abrirModalUploadArquivos(item) {
+            self.anexoForm.$setPristine();
+            self.objFile = item;
+            self.objFile.File = null;
+            self.objFile.Observacao = null;
+            limparCampoFileUpload();
+            $('#modalArquivo').modal('show');
+        }
+
+        function enviarArquivo() {
+            var reader = new FileReader(),
+                file = self.objFile.File;
+
+            reader.onload = function (e) {
+
+                var arrayBinario = e.target.result.split(',')[1];
+                // ainda não entregou o arquivo
+                if (self.objFile.IDCONTROLEENTREGA <= 0) {
+                    EduEntregasFactory.entregarArquivoAsync(
+                        self.objFile.IDTURMADISC,
+                        self.objFile.CODETAPA,
+                        self.objFile.TIPOETAPA,
+                        self.objFile.CODPROVA,
+                        file.name,
+                        file.size,
+                        self.objFile.Observacao,
+                        arrayBinario, function () {
+                            $('#modalArquivo').modal('hide');
+                            //Atualizar visão
+                            removeItensDisciplinaModel();
+                            init();
+                        }
+                    );
+                } else { // atualiza o arquivo entregue
+                    EduEntregasFactory.atualizarArquivoAsync(
+                        self.objFile.IDCONTROLEENTREGA,
+                        file.name,
+                        file.size,
+                        arrayBinario,
+                        self.objFile.Observacao, function () {
+                            $('#modalArquivo').modal('hide');
+                            //Atualizar visão
+                            removeItensDisciplinaModel();
+                            init();
+                        }
+                    );
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function questionExcluirArquivo(item) {
+            totvsNotification.question({
+                title: i18nFilter('l-Confirmacao'),
+                text: i18nFilter('l-msg-confirmacao-exclusao', [], 'js/aluno/entregas'),
+                cancelLabel: 'l-no',
+                size: 'md', // sm = small | md = medium | lg = larger
+                confirmLabel: 'l-yes',
+                callback: function (isPositiveResult) {
+                    if (isPositiveResult) {
+                        excluirArquivo(item);
+                    }
+                }
+            });
+        }
+
+        function baixarArquivo(item) {
+            eduUtilsService.abrirJanelaDownloadArquivo(item.NOMEARQUIVO, item.ARQUIVO);
+        }
+
+        function getLabelEnviarArquivo(status) {
+            // enviado
+            if (status === 1) {
+                return i18nFilter('l-btn-update-file', [], 'js/aluno/entregas');
+            }
+            // qualquer outro
+            return i18nFilter('l-btn-enviar-file', [], 'js/aluno/entregas');
+        }
+
+        function abrirDetalhesDisciplina(idTurmaDisc) {
+            var contexto, codColigada, ra;
+
+            contexto = TotvsDesktopContextoCursoFactory.getCursoSelecionado();
+            codColigada = contexto.cursoSelecionado.CODCOLIGADA;
+            ra = contexto.cursoSelecionado.RA;
+
+            MatriculaDisciplinaService.exibirDetalhesMatriculaDisciplina(codColigada, idTurmaDisc, ra);
+        }
+
+        function imprimir () {
+            if (codRelatorioImpressao) {
+                eduRelatorioService.emitirRelatorio(codRelatorioImpressao);
+            }
+        }
+
+        // private functions
+        function carregarParametrosEdu() {
+            eduUtilsFactory.getParametrosTOTVSEducacionalAsync(function (params) {
+                self.permiteImprimir = false;
+                self.extArqEntregaTrab = params.ExtArqEntregaTrab;
+                self.tamanhoMaximoEntrega = params.TamanhoMaximoEntrega;
+            });
+        }
+
+        function limparCampoFileUpload() {
+            var element = document.getElementsByName('campoFile');
+            $(element).val('');
+
+            element = document.getElementsByName('campoFile_fake');
+            $(element).val('');
+        }
+
+        function excluirArquivo(item) {
+            EduEntregasFactory.deletarArquivoAsync(item.IDCONTROLEENTREGA, function (result) {
+                if (result) {
+                    removeItensDisciplinaModel();
+                    init();
+                }
+            });
+        }
+
+        function removeItensDisciplinaModel() {
+            self.modelFull = $filter('filter')(self.modelFull, function(item) { return  item.IDTURMADISC != self.disciplina }, true);
+            self.model = $filter('filter')(self.model, function(item) { return  item.IDTURMADISC != self.disciplina }, true);
+        }
+
+        // Assina o evento de alteração de período
+        $scope.$on('alteraPeriodoLetivoEvent', function () {
+            self.refresh = true;
+            self.reloadData =  false;
+            self.disciplina = -1;
+            self.etapa = -1;
+            clearObjectModel();
+            init();
+        });
+
+    }
+});

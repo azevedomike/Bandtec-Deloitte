@@ -1,0 +1,301 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduFinanceiroModule
+ * @name eduFinanceiroService
+ * @object service
+ *
+ * @created 2016-10-13 v12.1.15
+ * @updated
+ *
+ * @requires
+ *
+ * @description Service utilizada para retornar informações financeiras do aluno
+ */
+
+define(['aluno/financeiro/financeiro.module',
+    'aluno/financeiro/financeiro.factory',
+    'utils/edu-utils.module',
+    'utils/edu-utils.service',
+    'utils/edu-utils.factory',
+    'utils/edu-enums.constants'
+], function() {
+
+    'use strict';
+
+    angular
+        .module('eduFinanceiroModule')
+        .service('EduFinanceiroService', EduFinanceiroService);
+
+    EduFinanceiroService.$inject = ['$filter',
+        '$window',
+        'TotvsDesktopContextoCursoFactory',
+        'EduFinanceiroFactory',
+        'eduRelatorioService',
+        'i18nFilter',
+        'totvs.app-notification.Service',
+        'eduEnumsConsts'
+    ];
+
+    function EduFinanceiroService($filter,
+        $window,
+        TotvsDesktopContextoCursoFactory,
+        EduFinanceiroFactory,
+        eduRelatorioService,
+        i18nFilter,
+        appNotificationService,
+        eduEnumsConsts) {
+
+        // *********************************************************************************
+        // *** Variáveis
+        // *********************************************************************************
+        var paramEdu = {},
+            objInfoBoleto = [];
+
+        var self = this;
+        self.retornarBeneficios = retornarBeneficios;
+        self.visualizarBoleto = visualizarBoleto;
+        self.visualizarBoletoMatricula = visualizarBoletoMatricula;
+        self.visualizarRecibo = visualizarRecibo;
+        self.permitePagamentoCartao = permitePagamentoCartao;
+        self.permiteImpressaoRecibo = permiteImpressaoRecibo;
+        self.permitePagamentoBoleto = permitePagamentoBoleto;
+
+        // *********************************************************************************
+        // *** Propriedades públicas e métodos
+        // *********************************************************************************
+
+        /**
+         * Retorna lista de benefícios do aluno
+         *
+         * @param {any} callback - Função de callback
+         */
+        function retornarBeneficios(callback) {
+            var listaBeneficios = [];
+
+            EduFinanceiroFactory.buscarBeneficios(function(resultado) {
+                if (resultado) {
+                    resultado.SBolsaAluno.forEach(function(dadosBeneficio) {
+                        listaBeneficios.push(new Bolsa(dadosBeneficio));
+                    });
+                }
+
+                if (typeof callback === 'function') {
+                    callback(listaBeneficios);
+                }
+
+            });
+        }
+
+        /**
+         * Objeto Bolsa
+         *
+         * @param {any} dados - Dados para carregar bolsa
+         */
+        function Bolsa(dados) {
+
+            this.descricao = dados.BOLSA;
+            this.codServico = dados.CODSERVICO;
+            this.servico = dados.SERVICO;
+            this.tipoDesconto = dados.TIPODESC;
+            this.valorDesconto = dados.DESCONTO;
+            this.codContrato = dados.CODCONTRATO;
+            this.parcelaInicial = dados.PARCELAINICIAL;
+            this.parcelaFinal = dados.PARCELAFINAL;
+            this.dataInicial = dados.DTINICIO;
+            this.dataFinal = dados.DTFIM;
+            this.valorMaximoDesconto = dados.TETOVALOR;
+            this.dataAutorizacao = dados.DATAAUTORIZACAO;
+            this.dataConcessao = dados.DATACONCESSAO;
+            this.dataCancelamento = dados.DATACANCELAMENTO;
+            this.usuarioCancelamento = dados.CODUSUARIOCANCEL;
+            this.motivoCancelamento = dados.MOTIVOCANCELAMENTO;
+            this.ativa = dados.ATIVA;
+            this.retroativa = dados['BOLSARETROATIVA'] && dados.BOLSARETROATIVA === eduEnumsConsts.EduSimOuNaoEnum.Sim;
+
+            this.getValorDesconto = function() {
+                if (this.tipoDesconto === 'P') {
+                    return this.valorDesconto + '%';
+                } else {
+                    return $filter('currency')(this.valorDesconto);
+                }
+            };
+        }
+
+        /**
+         * Visualizar boleto
+         *
+         * @param {Number} idBoleto Id. do boleto
+         * @param {String} nossoNumero Nosso número
+         * @param {Date} dtVencimento Data de vencimento do boleto
+         * @param {Object} paramEdu Parâmetros do educacional
+         * @param {any} callback Função de retorno com informações do boleto
+         */
+        function visualizarBoleto(idBoleto, nossoNumero, dtVencimento, paramsEdu, callback) {
+            paramEdu = paramsEdu;
+
+            EduFinanceiroFactory.geraSegundaVia(idBoleto, nossoNumero, dtVencimento, function(result) {
+                
+                validacoesPosBoleto(result, paramEdu);
+
+                if (angular.isFunction(callback)) {
+                    callback(objInfoBoleto);
+                }
+            });
+        }
+
+        /**
+         * Visualizar boleto
+         *
+         * @param {Number} idBoleto Id. do boleto
+         * @param {String} nossoNumero Nosso número
+         * @param {Date} dtVencimento Data de vencimento do boleto
+         * @param {Object} paramEdu Parâmetros do educacional
+         * @param {any} callback Função de retorno com informações do boleto
+         */
+        function visualizarBoletoMatricula(idBoleto, nossoNumero, dtVencimento, paramsEdu, idPerlet, callback) {
+            paramEdu = paramsEdu;
+
+            EduFinanceiroFactory.geraSegundaViaMatricula(idBoleto, nossoNumero, dtVencimento, idPerlet, function(result) {
+                
+                validacoesPosBoleto(result, paramEdu);
+
+                if (angular.isFunction(callback)) {
+                    callback(objInfoBoleto);
+                }
+            });
+        }
+
+        /**
+         * Visualizar recibo
+         * @param {Number} idBoleto
+         */
+        function visualizarRecibo(idBoleto, callback) {
+
+            EduFinanceiroFactory.gerarRecibo(idBoleto, function (result) {
+
+                let objRecibo = {};
+
+                if (result && result[0].Bytes) {
+                    objRecibo = result[0].Bytes;
+                    eduRelatorioService.exibirOuSalvarPDF(result[0].Bytes);
+                }
+
+                if (angular.isFunction(callback)) {
+                    callback(objRecibo);
+                }
+
+            });
+        }
+
+        /**
+         * Verifica se permite pagamento com cartão para o boleto
+         *
+         * @param {Obeject} objBoleto Boleto
+         * @param {Object} paramsEdu Parâmetros do educacional
+         * @returns {Boolean} Boleto pode ser pago com cartão
+         */
+        function permitePagamentoCartao(objBoleto, paramsEdu) {
+            return servicoPermitePagamentoComCartao(objBoleto) &&
+                !(paramsEdu.IntegradoProtheus && paramsEdu.LegadoIntegracaoProtheus === '1') &&
+                ((eduEnumsConsts.StatusBoletoEnum.EmAberto == objBoleto.STATUSBOLETO) && 
+                    eduEnumsConsts.StatusLanEnum.Aberto == objBoleto.STATUSLAN || eduEnumsConsts.StatusLanEnum.BaixadoParcialmente == objBoleto.STATUSLAN) &&
+                (eduEnumsConsts.EduTipoBolsaFiesEnum.NovoFIES != objBoleto.FIES) &&
+                (paramsEdu.PermitePagCartaoCredito) &&
+                (!paramsEdu.ExcluiPagtoCartaoPorMatrizAplicada);
+        }
+
+        function servicoPermitePagamentoComCartao(objBoleto) {
+            return objBoleto.PGCARTAODEBITO === eduEnumsConsts.EduSimOuNaoEnum.Sim || objBoleto.PGCARTAOCREDITO === eduEnumsConsts.EduSimOuNaoEnum.Sim;
+        }
+
+        /**
+         * Verifica se permite impressão de recibo
+         *
+         * @param {Obeject} objBoleto Boleto
+         * @param {Object} paramsEdu Parâmetros do educacional
+         * @returns {Boolean} Recibo do Boleto pode ser impresso
+         */
+        function permiteImpressaoRecibo(objBoleto, paramsEdu) {
+            return (paramsEdu.CodColRelatDemonstrativoDotNetExe != null) &&
+                (paramsEdu.IdRelatDemonstrativoDotNetExe != null) &&
+                (objBoleto.IDBOLETO != null) &&
+                (objBoleto.STATUSBOLETO == eduEnumsConsts.StatusBoletoEnum.Baixado);
+        }
+
+        /**
+         * Permite emissão do boleto para pagamento
+         *
+         * @param {Object} objBoleto Boleto
+         * @param {Object} paramsEdu Parâmetros do educacional
+         * @returns {Boolean}
+         */
+        function permitePagamentoBoleto(objBoleto, paramsEdu) {
+            return objBoleto.PGBOLETO === eduEnumsConsts.EduSimOuNaoEnum.Sim &&
+                registroBoletoValido(objBoleto, paramsEdu) &&
+                relatorioCadastrado(paramsEdu) &&
+                (((eduEnumsConsts.StatusBoletoEnum.EmAberto == objBoleto.STATUSBOLETO) &&
+                    (eduEnumsConsts.StatusLanEnum.Aberto == objBoleto.STATUSLAN || eduEnumsConsts.StatusLanEnum.BaixadoParcialmente == objBoleto.STATUSLAN)) &&
+                    (eduEnumsConsts.EduTipoBolsaFiesEnum.NovoFIES != objBoleto.FIES) ||
+                    paramsEdu.ImprimirBoletosBaixaParcial && objBoleto.STATUSBOLETO === eduEnumsConsts.StatusBoletoEnum.BaixadoParcialmente);
+        }
+
+        function registroBoletoValido(objBoleto, paramsEdu) {
+            return ((angular.isDefined(objBoleto.PERMITEREGONLINE) && objBoleto.PERMITEREGONLINE) ||
+                (angular.isDefined(objBoleto.BOLETOREGISTRADO) && objBoleto.BOLETOREGISTRADO) ||
+                paramsEdu.ShowBoletoNaoRegistradoPortal);
+        }
+
+        function relatorioCadastrado(paramsEdu) {
+            return (paramsEdu.TipoGeradorRelatorio === eduEnumsConsts.TipoGeradorRelatorio.DotNet && paramsEdu.IdRelatBoletosDotNetExe != null) ||
+                (paramsEdu.TipoGeradorRelatorio === eduEnumsConsts.TipoGeradorRelatorio.Delphi && paramsEdu.IdRelatBoletosDelphiExe != null);
+        }
+
+        function validacoesPosBoleto(result, paramEdu) {
+            if (result && result[0]['Bytes']) {
+                angular.forEach(result, function(value) {
+                    objInfoBoleto.push(value);
+                });
+
+                //Para boleto registrado, abre o boleto em PDF normalmente.
+                if (objInfoBoleto[0].BOLETOREGISTRADO === true ||
+                    paramEdu.ShowBoletoNaoRegistradoPortal) {
+
+                    eduRelatorioService.exibirOuSalvarPDF(result[0].Bytes);
+                } else if (objInfoBoleto[0].PERMITEREGONLINE === true) {
+
+                    //O usuário é informado que será redirecionado para o site do banco,
+                    //e confirma se deseja continuar ou não.
+                    appNotificationService.question({
+                        title: i18nFilter('l-boleto', [], 'js/aluno/financeiro/lancamentos'),
+                        text: i18nFilter('l-redirecionarbanco', [], 'js/aluno/financeiro/lancamentos'),
+                        size: 'sm',
+                        cancelLabel: 'l-no',
+                        confirmLabel: 'l-yes',
+                        callback: function(opcaoEscolhida) {
+                            if (opcaoEscolhida) {
+                                $window.open(objInfoBoleto[0].URLREGONLINE);
+                            }
+                        }
+                    });
+                } else if (!paramEdu.ShowBoletoNaoRegistradoPortal) {
+                    appNotificationService.notify({
+                        type: 'warning',
+                        title: i18nFilter('l-boleto', [], 'js/aluno/financeiro/lancamentos'),
+                        detail: i18nFilter('l-boleto-nao-registrado', [], 'js/aluno/financeiro/lancamentos')
+                    });
+                } else {
+                    appNotificationService.notify({
+                        type: 'warning',
+                        title: i18nFilter('l-boleto', [], 'js/aluno/financeiro/lancamentos'),
+                        detail: i18nFilter('l-erro-gerar-boleto', [], 'js/aluno/financeiro/lancamentos')
+                    });
+                }
+            }
+        }
+    }
+});

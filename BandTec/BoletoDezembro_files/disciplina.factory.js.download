@@ -1,0 +1,56 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+define(['aluno/disciplina/disciplina.module'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduDisciplinaModule')
+        .factory('eduDisciplinaFactory', EduDisciplinaFactory);
+
+    EduDisciplinaFactory.$inject = ['$totvsresource','$state'];
+
+    // *********************************************************************************
+    // *** Factory
+    // *********************************************************************************
+    function EduDisciplinaFactory($totvsresource,$state) {
+
+        var url = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/:method',
+            factory;
+
+        factory = $totvsresource.REST(url, {}, {});
+        factory.InfoDisciplina = InfoDisciplina;
+        factory.ExibirInfoDisciplina = ExibirInfoDisciplina;
+
+        return factory;
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        function InfoDisciplina(parameters, callback) {
+            parameters.method = 'InfoDisciplina';
+            factory.TOTVSGet(parameters, callback);
+        }
+
+        function ExibirInfoDisciplina(idTurmaDisc, codDisc, callback) {
+
+            var params = {
+                idTurmaDisc: idTurmaDisc,
+                codDisc: codDisc
+            };
+
+            $state.go('disciplina.start', params);
+
+            if (callback) {
+                callback();
+            }
+
+        }
+    }
+});

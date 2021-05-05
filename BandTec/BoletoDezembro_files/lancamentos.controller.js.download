@@ -1,0 +1,785 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+/**
+ * @module eduLancamentosModule
+ * @name EduLancamentosController
+ * @object controller
+ *
+ * @created 26/09/2016 v12.1.15
+ * @updated
+ *
+ * @requires Lancamentos.module
+ *
+ * @dependencies eduLancamentosFactory
+ *
+ * @description Controller do Lancamentos
+ */
+define(['aluno/financeiro/financeiro.module',
+    'aluno/financeiro/lancamentos/lancamentos-pagcartao.controller',
+    'aluno/financeiro/financeiro.factory',
+    'aluno/financeiro/financeiro.service',
+    'utils/edu-utils.service',
+    'utils/edu-utils.factory',
+    'utils/edu-enums.constants'
+], function() {
+
+    'use strict';
+
+    angular
+        .module('eduFinanceiroModule')
+        .controller('EduLancamentosController', EduLancamentosController);
+
+    EduLancamentosController.$inject = [
+        '$window',
+        '$scope',
+        '$filter',
+        '$state',
+        'eduUtilsFactory',
+        'EduFinanceiroFactory',
+        'eduUtilsService',
+        'eduEnumsConsts',
+        '$sce',
+        'EduFinanceiroService',
+        'totvs.app-notification.Service'
+    ];
+
+    function EduLancamentosController(
+        $window,
+        $scope,
+        $filter,
+        $state,
+        eduUtilsFactory,
+        EduFinanceiroFactory,
+        eduUtilsService,
+        eduEnumsConsts,
+        $sce,
+        eduFinanceiroService,
+        totvsNotification) {
+
+        var self = this,
+            paramEdu = {};
+
+        // vars
+        self.limitAt = 100; // "sem" limite de resultados para paginação
+        self.intTotalLancamentos = 0;
+        self.situacaoSelecionada = -1;
+        self.ItensExtratoFinanceiro = '';
+        self.objLancamentosList = [];
+        self.objLancamentosBoleto = [];
+        self.objInfoBoleto = [];
+        self.listaSituacao = [];
+        self.listaLancamentosPorBoleto = {};
+        self.listaConfigPorGrid = {};
+        self.todosAbertos = false;
+        self.ShowBoletoNaoRegistradoPortal = false;
+        self.PermitePagCartaoCredito = false;
+        self.IntegradoProtheus = false;
+        self.LegadoIntegracaoProtheus = false;
+        self.ExcluiPagtoCartaoPorMatrizAplicada = false;
+        self.ImprimirBoletosBaixaParcial = false;
+        self.ImprimeRecibo = false;
+        self.TipoGeradorRelatorio = null;
+        self.IdRelatBoletosDotNetExe = null;
+        self.IdRelatBoletosDelphiExe = null;
+        self.exibeInfoDesconto = false;
+        self.camposOpcionaisList = [];
+        self.idBoletoAtual = 0;
+        self.nossoNumeroAtual = '';
+        self.dtVencimentoAtual = new Date();
+        self.jpegRelatorioBoletoExtratoFinanceiro = [];
+
+        // functions
+        self.getLancamentosBoleto = getLancamentosBoleto;
+        self.getLancamentos = getLancamentos;
+        self.ImprimeBoleto = ImprimeBoleto;
+        self.pagarBoleto = pagarBoleto;
+        self.ImprimirRecibo = ImprimirRecibo;
+        self.getSituacaoBoleto = getSituacaoBoleto;
+        self.getTituloBoleto = getTituloBoleto;
+        self.search = search;
+        self.Servico = getServico;
+        self.getDescricaoStatusLan = getDescricaoStatusLan;
+        self.Competencia = getCompetencia;
+        self.DtBaixa = getDataBaixa;
+        self.exibirDadosPagCartao = exibirDadosPagCartao;
+        self.atualizaListagem = atualizaListagem;
+        self.exibirOpcoesPagamento = exibirOpcoesPagamento;
+        self.exibeBtnBoleto = exibeBtnBoleto;
+        self.exibeBtnCartao = exibeBtnCartao;
+        self.exibeBtnRecibo = exibeBtnRecibo;
+        self.exibirIPTE = exibirIPTE;
+
+        $window.notificacaoResultadoComunicacaoCielo = notificacaoResultadoComunicacaoCielo;
+
+        // Assina o evento de alteração de período
+        $scope.$on('alteraPeriodoLetivoEvent', atualizaListagem);
+
+        function ImprimeBoleto(idBoleto, nossoNumero, dtVencimento) {
+            
+            var reload = false;
+            try {
+                var tempDate = new Date();
+                var dtVencimento_ = new Date(dtVencimento);
+                var dtNow_ = new Date(tempDate.getUTCFullYear(), tempDate.getUTCMonth(), tempDate.getUTCDate());
+                if (dtVencimento_ < dtNow_)
+                    reload = true;
+            } catch (e) {
+                reload = false;
+            }
+            eduFinanceiroService.visualizarBoleto(idBoleto, nossoNumero, dtVencimento, paramEdu, function (objInfoBoleto) {
+                self.objInfoBoleto = objInfoBoleto;
+
+                if (reload)
+                    self.search(false);
+            });
+        }
+
+        function pagarBoleto(idBoleto, nossoNumero, dtVencimento) {
+            if(self.TipoGeradorRelatorio === eduEnumsConsts.TipoGeradorRelatorio.DotNet &&
+                self.IdRelatBoletosDotNetExe != null) {
+                    EduFinanceiroFactory.exibirModalBoleto(idBoleto, nossoNumero, dtVencimento);
+            }
+            else{
+                ImprimeBoleto(idBoleto, nossoNumero, dtVencimento);
+            }
+        }
+
+        
+
+        function ImprimirRecibo(idBoleto) {
+            eduFinanceiroService.visualizarRecibo(idBoleto, function(objRecibo) {
+                console.log("ImprimirRecibo");
+            });
+        }
+
+        function carregarParametrosEdu() {
+            eduUtilsFactory.getParametrosTOTVSEducacionalAsync(function(params) {
+
+                paramEdu = params;
+
+                self.ItensExtratoFinanceiro = params.ItensExtratoFinanceiro;
+                self.ShowBoletoNaoRegistradoPortal = params.ShowBoletoNaoRegistradoPortal;
+                self.PermitePagCartaoCredito = params.PermitePagCartaoCredito;
+                self.IntegradoProtheus = params.IntegradoProtheus;
+                self.LegadoIntegracaoProtheus = params.LegadoIntegracaoProtheus;
+                self.ImprimirBoletosBaixaParcial = params.ImprimirBoletosBaixaParcial;
+                self.ImprimeRecibo = (params.CodColRelatDemonstrativoDotNetExe != null && params.IdRelatDemonstrativoDotNetExe != null);
+                self.TipoGeradorRelatorio = params.TipoGeradorRelatorio;
+                self.IdRelatBoletosDotNetExe = params.IdRelatBoletosDotNetExe;
+                self.IdRelatBoletosDelphiExe = params.IdRelatBoletosDelphiExe;
+                self.NaoExibeLancamentosCancelados = params.NaoExibeLancamentosCancelados;
+
+                preencheCombo(); // preenche o combo de filtro
+            });
+        }
+
+        // *********************************************************************************
+        // *** Inicialização do controller
+        // *********************************************************************************
+
+        init();
+
+        /**
+         * Metodo de inicialização do controller
+         */
+        function init() {
+            carregarParametrosEdu();
+            atualizarFiltroStatusBoleto();
+            atualizaListagem(false);
+
+            // reseta filtros
+            self.todosAbertos = false;
+            atualizarFiltroPerlet();
+        }
+
+        /**
+         * Método que é chamado ao abrir a tela, e ao clicar no botão para filtrar apenas
+         * pelos boletos abertos, independente do período letivo.
+         *
+         * @param {boolean} changeStatus indica se deve alterar o status
+         */
+        function atualizaListagem(changeStatus) {
+            //Ao alterar o período letivo, não deve alterar este parâmetro.
+            if (changeStatus === true) {
+                self.todosAbertos = !self.todosAbertos;
+
+                if (self.todosAbertos) {
+                    self.situacaoSelecionada = -1;
+                }
+            }
+
+            atualizarFiltroPerlet();
+
+            self.search(false);
+        }
+
+        /**
+         * Atualiza filtro do período letivo
+         *
+         */
+        function atualizarFiltroPerlet() {
+            if ($scope.$parent['controller'] !== null) {
+                $scope.$parent['controller'].periodoLetDesabilitado = self.todosAbertos;
+                $scope.$parent['controller'].periodoLetDesabilitadoTabLancamentos = self.todosAbertos;
+            }
+        }
+
+        /**
+         * Atualiza filtro do Status do boleto.
+         *
+         */
+        function atualizarFiltroStatusBoleto() {
+            if ($state.params.status !== -1) {
+                self.situacaoSelecionada = $state.params.status;
+            }
+        }
+
+        /**
+         * Cria a lista que preenche o combo de filtro da tela.
+         */
+        function preencheCombo() {
+            self.listaSituacao = [{
+                'Codigo': -1,
+                'Situacao': $filter('i18n')('l-todos', [])
+            }, {
+                'Codigo': 1,
+                'Situacao': $filter('i18n')('l-pago', [], 'js/aluno/financeiro/lancamentos')
+            }, {
+                'Codigo': 4,
+                'Situacao': $filter('i18n')('l-pago-parcialmente', [], 'js/aluno/financeiro/lancamentos')
+            }, {
+                'Codigo': 0,
+                'Situacao': $filter('i18n')('l-aberto', [], 'js/aluno/financeiro/lancamentos')
+            }];
+
+            if (!self.NaoExibeLancamentosCancelados) {
+                self.listaSituacao.push({
+                    'Codigo': 2,
+                    'Situacao': $filter('i18n')('l-cancelado', [], 'js/aluno/financeiro/lancamentos')
+                });
+            }
+        }
+
+        /**
+         * Função de definição do status da bolsa
+         *
+         * @param {Object} item - bolsa a ser verificado o status
+         * @returns classe CSS do status
+         */
+        function getSituacaoBoleto(item) {
+
+            //STATUSBOLETOENUM
+            // EmAberto: 0,
+            // Baixado: 1,
+            // Cancelado: 2,
+            // BaixadoParcialmente: 4,
+            // Inativo: 5
+
+            var classeLegenda = 'legenda-vermelho legenda-content-3 ';
+
+            if (item.STATUSBOLETO === 0) {
+                classeLegenda = 'legenda-vermelho legenda-content-3 ';
+            }
+
+            if (item.STATUSBOLETO === 1) {
+                classeLegenda = 'legenda-verde legenda-content-1 ';
+            }
+
+            if (item.STATUSBOLETO === 4) {
+                classeLegenda = 'legenda-laranja legenda-content-2 ';
+            }
+
+            if (item.STATUSBOLETO === 2) {
+                classeLegenda = 'legenda-cinza legenda-content-4 ';
+            }
+
+            if (item.STATUSBOLETO === 5) {
+                classeLegenda = 'legenda-azul legenda-content-5 ';
+            }
+
+            return ' legenda ' + classeLegenda;
+        }
+
+        /**
+         * Função que retorna o título do boleto, contendo a data de vencimento e valor bruto
+         *
+         * @param {Object} item - objeto do boleto
+         * @returns texto com data de vencimento e valor bruto
+         */
+        function getTituloBoleto(item) {
+            return $filter('i18n')('l-vencimento', [], 'js/aluno/financeiro/lancamentos') + ': ' +
+                $filter('date')(item.DATAVENCIMENTO, 'dd/MM/yyyy') + ' - ' +
+                $filter('i18n')('l-valor-bruto', [], 'js/aluno/financeiro/lancamentos') + ': ' +
+                $filter('currency')(item.VALORORIGINAL);
+        }
+
+        /**
+         * Função que efetivamente faz a chamada do retorno dos boletos e seus lançamentos.
+         *
+         * @param {Boolean} isMore - define um limite para quantidade de registros retornados.
+         * @returns Boletos e lançamentos.
+         */
+        function search(isMore) {
+            var startAt = 0;
+            self.intLancamentosFiltrados = 0;
+
+            if (isMore) {
+                startAt = self.objLancamentosList[0].length;
+            } else {
+                self.objLancamentosList = [];
+            }
+            self.getLancamentos(startAt);
+        }
+
+        /**
+         * Retorna os boletos e lançamentos por Período letivo, ou todos boletos em aberto independente do período letivo.
+         *
+         * @param {int} startAt - início do retorno de registros.
+         * @returns Retorna a listagem de Boletos e Lançamentos
+         */
+        function getLancamentos(startAt) {
+
+            EduFinanceiroFactory.buscaHistoricoFinanceiro(self.todosAbertos, startAt, self.limitAt, function (result) {
+
+                if (result) {
+
+                    // verifica se o serviço retornou algum erro
+                    if (!angular.isDefined(result.BOLETOS.SBoletos)) {
+                        return;
+                    }
+
+                    var resultFilter = filterStateParamBoleto(result.BOLETOS);
+                    self.ExcluiPagtoCartaoPorMatrizAplicada = result.EXCLUIPAGCARTAOPORMATRIZAPLICADA;
+
+                    if (angular.isDefined(resultFilter.SBoletos)) {
+                        self.objLancamentosList.push(resultFilter.SBoletos);
+                        self.intLancamentosFiltrados = resultFilter.SBoletos.length;
+                    }
+                    if (angular.isDefined(resultFilter.SDetalhes)) {
+                        self.objLancamentosList.push(resultFilter.SDetalhes);
+                    }
+                    if (angular.isDefined(resultFilter.CamposOpcionais)) {
+                        self.camposOpcionaisList = resultFilter.CamposOpcionais;
+                    }
+                }
+
+                self.getLancamentosBoleto();
+            });
+        }
+
+        /* Filtra o boleto passado pelo state param.
+         * @param {any} result - resul filtrado
+         */
+        function filterStateParamBoleto(result) {
+
+            //Caso a tela esteja com parâmetro para filtrar o extrato financeiro de boleto
+            //deverá ser listado apenas o boleto indicado no parâmetro
+            if ($state.params.boleto) {
+
+                if (angular.isDefined(result.SBoletos)) {
+                    for (var i = 0; i < result.SBoletos.length; i++) {
+                        if (result.SBoletos[i].IDBOLETO !== $state.params.boleto) {
+                            result.SBoletos.splice(i, 1);
+                            i = -1;
+                        }
+                    }
+                }
+
+                if (angular.isDefined(result.SDetalhes)) {
+                    for (var j = 0; j < result.SDetalhes.length; j++) {
+                        if (result.SDetalhes[j].IDBOLETO !== $state.params.boleto) {
+                            result.SDetalhes.splice(j, 1);
+                            j = -1;
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /**
+         * Esta função cria uma nova lista com os Lançamentos por Boleto.
+         *
+         * @returns Preenche um array com as listas de lançamentos de cada boleto correspondente.
+         */
+        function getLancamentosBoleto() {
+            var todosBoletos = self.objLancamentosList[0],
+                todosLancamentos = self.objLancamentosList[1];
+
+            self.listaLancamentosPorBoleto = new Array(todosBoletos.length);
+
+            //navega entre todos os boletos
+            for (var x = 0; x < todosBoletos.length; x++) {
+
+                //geraSegundaVia(todosBoletos[x].IDBOLETO, todosBoletos[x].DATAVENCIMENTO);
+                var indiceBoleto = todosBoletos[x].IDBOLETO.toString();
+                self.listaLancamentosPorBoleto[indiceBoleto] = [];
+                self.listaConfigPorGrid[indiceBoleto] = configurarGridOptions(todosLancamentos);
+
+                //Permite IPTE Ter link HTML
+                todosBoletos[x].IPTE = $sce.trustAsHtml(todosBoletos[x].IPTE);
+
+                //busca todos os lançamentos do boleto
+                for (var i = 0; i < todosLancamentos.length; i++) {
+
+                    if (todosBoletos[x].IDBOLETO === todosLancamentos[i].IDBOLETO) {
+                        self.listaLancamentosPorBoleto[indiceBoleto].push(todosLancamentos[i]);
+                    }
+                }
+            }
+
+            return self.listaLancamentosPorBoleto;
+        }
+
+        /**
+         * Define as configurações e propriedade dos grids que exibem os lançamentos.
+         *
+         * @param {Array} todosLancamentos Todos lançamentos retornados
+         * @returns
+         */
+        function configurarGridOptions (todosLancamentos) {
+
+            var defColunas = configuraColunasGrid(todosLancamentos),
+                gridOptions = {
+                    columns: defColunas,
+                    groupable: false,
+                    pageable: false,
+                    sortable: true,
+                    resizable: true,
+                    scrollable: true,
+                    selectable: false
+                };
+
+            return gridOptions;
+        }
+
+        /**
+         * Realiza a configuração das colunas que serão apresentadas no grid
+         * @returns
+         */
+        function configuraColunasGrid(todosLancamentos) {
+
+            var colunasDinamicas, colunasValoresOpcionais, colunaConfig = [];
+            colunasDinamicas = self.ItensExtratoFinanceiro.split(';');
+            colunasValoresOpcionais = todosLancamentos ;
+
+            //1 - Situação
+            //2 - Serviço
+            //3 - Parcela
+            //4 - Cota
+            //5 - Competência
+            //6 - Data de Baixa
+            //7 - Valor bruto
+            //8 - Juros
+            //9 - Multa
+            //10 - Descontos
+            //11 - Baixado
+            //12 - Acréscimo acordo
+            //13 - Juros acordo
+            //14 - Desconto acordo
+
+            for (var i = 0; i < colunasDinamicas.length; i++) {
+                if (colunasDinamicas[i] === '1') {
+                    colunaConfig.push({
+                        field: 'DESCSTATUSLAN',
+                        width: '150px',
+                        title: buscaColunaDescricao('DESCSTATUSLAN'),
+                        template: getDescricaoStatusLan,
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '2') {
+                    colunaConfig.push({
+                        field: 'SERVICO',
+                        width: '200px',
+                        title: buscaColunaDescricao('SERVICO'),
+                        template: getServico,
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '3') {
+                    colunaConfig.push({
+                        field: 'PARCELA',
+                        width: '80px',
+                        title: buscaColunaDescricao('PARCELA'),
+                        template: getTemplatePadrao('PARCELA'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '4') {
+                    colunaConfig.push({
+                        field: 'COTA',
+                        width: '80px',
+                        title: buscaColunaDescricao('COTA'),
+                        template: getTemplatePadrao('COTA'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '5') {
+                    colunaConfig.push({
+                        field: 'MESDECOMPETENCIA',
+                        width: '120px',
+                        title: buscaColunaDescricao('MESDECOMPETENCIA'),
+                        template: getCompetencia,
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '6') {
+                    colunaConfig.push({
+                        field: 'DATABAIXA',
+                        width: '120px',
+                        title: buscaColunaDescricao('DATABAIXA'),
+                        template: getDataBaixa,
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '7') {
+                    colunaConfig.push({
+                        field: 'VALORORIGINAL',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORORIGINAL'),
+                        template: getTemplateMoeda('VALORORIGINAL'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '8') {
+                    colunaConfig.push({
+                        field: 'VALORJUROS',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORJUROS'),
+                        template: getTemplateMoeda('VALORJUROS'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '9') {
+                    colunaConfig.push({
+                        field: 'VALORMULTA',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORMULTA'),
+                        template: getTemplateMoeda('VALORMULTA'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '10') {
+                    colunaConfig.push({
+                        field: 'VALORDESCONTO',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORDESCONTO'),
+                        template: getTemplateMoeda('VALORDESCONTO'),
+                        attributes: atributosBase()
+                    });
+                    self.exibeInfoDesconto = true; //exibe a label de desconto
+                }
+
+                if (colunasDinamicas[i] === '11') {
+                    colunaConfig.push({
+                        field: 'VALORBAIXADO',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORBAIXADO'),
+                        template: getTemplateMoeda('VALORBAIXADO'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '12') {
+                    colunaConfig.push({
+                        field: 'VALORACRESCIMOACORDO',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORACRESCIMOACORDO'),
+                        template: getTemplateMoeda('VALORACRESCIMOACORDO'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '13') {
+                    colunaConfig.push({
+                        field: 'VALORJUROSACORDO',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORJUROSACORDO'),
+                        template: getTemplateMoeda('VALORJUROSACORDO'),
+                        attributes: atributosBase()
+                    });
+                }
+
+                if (colunasDinamicas[i] === '14') {
+                    colunaConfig.push({
+                        field: 'VALORDESCONTOACORDO',
+                        width: '100px',
+                        title: buscaColunaDescricao('VALORDESCONTOACORDO'),
+                        template: getTemplateMoeda('VALORDESCONTOACORDO'),
+                        attributes: atributosBase()
+                    });
+                }
+
+            }
+
+            //Criação das colunas com valores opcionais/integração
+            angular.forEach(self.camposOpcionaisList, function (item) {
+
+                colunaConfig.push({
+                    field: item.COLUNA,
+                    width: '100px',
+                    title: item.TITULO,
+                    template: getTemplateMoeda(item.COLUNA),
+                    attributes: atributosBase()
+                });
+
+            });
+
+            return colunaConfig;
+        }
+
+        /**
+         * retorna os atributos padrões do grid
+         *
+         * @returns
+         */
+        function atributosBase() {
+            return {
+                class: 'gridRow'
+            };
+        }
+
+        /**
+         * Busca a descrição das colunas que será o cabeçalho apresentado no grid.
+         *
+         * @param {any} colunaNome - nome da coluna
+         * @returns
+         */
+        function buscaColunaDescricao(colunaNome) {
+
+            var descricaoColuna,
+                colunasFixas = {
+                    'DESCSTATUSLAN': $filter('i18n')('l-situacao', [], 'js/aluno/financeiro/lancamentos'),
+                    'SERVICO': $filter('i18n')('l-servico', [], 'js/aluno/financeiro/lancamentos'),
+                    'PARCELA': $filter('i18n')('l-parcela', [], 'js/aluno/financeiro/lancamentos'),
+                    'COTA': $filter('i18n')('l-cota', [], 'js/aluno/financeiro/lancamentos'),
+                    'MESDECOMPETENCIA': $filter('i18n')('l-competencia', [], 'js/aluno/financeiro/lancamentos'),
+                    'DATABAIXA': $filter('i18n')('l-dtbaixa', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORORIGINAL': $filter('i18n')('l-valor-bruto', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORJUROS': $filter('i18n')('l-juros', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORMULTA': $filter('i18n')('l-multa', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORBAIXADO': $filter('i18n')('l-baixado', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORDESCONTO': $filter('i18n')('l-desconto', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORACRESCIMOACORDO': $filter('i18n')('l-acrescimo-acordo', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORJUROSACORDO': $filter('i18n')('l-juros-acordo', [], 'js/aluno/financeiro/lancamentos'),
+                    'VALORDESCONTOACORDO': $filter('i18n')('l-desconto-acordo', [], 'js/aluno/financeiro/lancamentos')
+                };
+
+            descricaoColuna = colunasFixas[colunaNome];
+
+            if (!descricaoColuna) {
+                descricaoColuna = colunaNome;
+            }
+            return descricaoColuna;
+        }
+
+        function getTemplatePadrao(coluna) {
+            return ('<span>{{#:data["' + coluna + '"]#}}</span>');
+        }
+
+        function getTemplateMoeda(coluna) {
+            return ('<span>{{#:data["' + coluna + '"]# | currency }}</span>');
+        }
+
+        function getServico(item) {
+            if (item.SERVICO == null) {
+                return '';
+            }
+
+            return eduUtilsService.escapeHtml(item.SERVICO);
+        }
+
+        function getDescricaoStatusLan(item) {
+            if (item.DESCSTATUSLAN == null) {
+                return '';
+            }
+
+            return eduUtilsService.escapeHtml(item.DESCSTATUSLAN);
+        }
+
+        function getCompetencia(item) {
+            if (item.MESDECOMPETENCIA == null) {
+                return '';
+            }
+
+            return $filter('date')(item.MESDECOMPETENCIA, 'MM/yyyy');
+        }
+
+        function getDataBaixa(item) {
+            if (item.DATABAIXA == null) {
+                return '';
+            }
+
+            return $filter('date')(item.DATABAIXA, 'shortDate');
+
+        }
+
+        function exibirDadosPagCartao(idBoleto) {
+            EduFinanceiroFactory.exibirDadosPagCartao(idBoleto);
+        }
+
+        function exibirOpcoesPagamento(item) {
+            if (item.STATUSBOLETO === eduEnumsConsts.StatusBoletoEnum.EmAberto ||
+                (self.ImprimirBoletosBaixaParcial && item.STATUSBOLETO === eduEnumsConsts.StatusBoletoEnum.BaixadoParcialmente) ||
+                (self.ImprimeRecibo && item.STATUSBOLETO === eduEnumsConsts.StatusBoletoEnum.Baixado)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        function exibeBtnCartao(objBoleto) {
+            paramEdu["ExcluiPagtoCartaoPorMatrizAplicada"] = self.ExcluiPagtoCartaoPorMatrizAplicada;
+            return eduFinanceiroService.permitePagamentoCartao(objBoleto, paramEdu);
+        }
+
+        function exibeBtnRecibo(objBoleto) {
+            return eduFinanceiroService.permiteImpressaoRecibo(objBoleto, paramEdu);
+        }
+
+        function exibeBtnBoleto(objBoleto) {
+            return eduFinanceiroService.permitePagamentoBoleto(objBoleto, paramEdu);
+        }
+
+        /**
+         * Exibir IPTE
+         *
+         * @param {Object} objLancamento - Objeto lançamento
+         * @returns Boolean - Visível ou não
+         */
+        function exibirIPTE(objLancamento) {
+            return objLancamento.IPTE && objLancamento.STATUSLAN !== 1 && objLancamento.STATUSLAN !== 2;
+        }
+
+        function notificacaoResultadoComunicacaoCielo(tipoAviso, titulo, mensagem) {
+
+            totvsNotification.notify({
+                type: tipoAviso,
+                title: titulo,
+                detail: mensagem
+            });
+
+            $scope.$apply();
+
+            if (tipoAviso === 'info') {
+                $state.reload();
+            }
+        }
+    }
+});

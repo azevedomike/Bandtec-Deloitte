@@ -1,0 +1,119 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduUtilsModule
+ * @name eduUtilsService
+ * @object service
+ *
+ * @created 2016-10-11 v12.1.15
+ * @updated
+ *
+ * @requires
+ *
+ * @description Service utils do Educacional
+ */
+define(['utils/edu-utils.module'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduUtilsModule')
+        .service('eduUtilsService', EduUtilsService);
+
+    EduUtilsService.$inject = [];
+
+    function EduUtilsService() {
+
+        var self = this;
+
+        self.escapeHtml = escapeHtml;
+        self.tratarQuebrasDeLinhaStringParaHTML = tratarQuebrasDeLinhaStringParaHTML;
+        self.capitalizeFirstLetter = capitalizeFirstLetter;
+        self.abrirJanelaDownloadArquivo = abrirJanelaDownloadArquivo;
+        self.b64toBlob = b64toBlob;
+
+        /**************
+        *   FUNCTIONS
+        **************/
+
+        /**
+         * @param {string} str - caracter especial
+         */
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;')
+                .replace(/\//g, '&#x2F;');
+        }
+
+        /**
+         * Realiza a transformação de quebras de linha string ('\n')
+         * para quebras de linha em html ('<br>')
+         *
+         * @param {any} string - string a receber tratamento
+         * @returns
+         */
+        function tratarQuebrasDeLinhaStringParaHTML(string) {
+            if (string) {
+                return string.replaceAllRegExp('\n', '<br>');
+            }
+            else {
+                return '';
+            }
+        }
+
+        /**
+         * Transforma o primeiro caracter de uma string em letra maíuscula (capitalize)
+         *
+         * @param {any} string - string a receber tratamento
+         * @returns
+         */
+        function capitalizeFirstLetter(string) {
+            if (string) {
+                return string.replace(/^./, string[0].toUpperCase());
+            }
+            else {
+                return '';
+            }
+        }
+
+        function abrirJanelaDownloadArquivo(nomeArquivo, arquivoBytes) {
+            var blob = b64toBlob(arquivoBytes);
+            saveAs(blob, nomeArquivo);
+        }
+
+        function b64toBlob (b64Data, contentType, sliceSize) {
+
+            contentType = contentType || '';
+            sliceSize = sliceSize || 512;
+
+            var byteCharacters = atob(b64Data),
+                byteArrays = [];
+
+            for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+
+                var slice = byteCharacters.slice(offset, offset + sliceSize),
+                byteNumbers = new Array(slice.length);
+                for (var i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+
+                var byteArray = new Uint8Array(byteNumbers);
+
+                byteArrays.push(byteArray);
+            }
+
+            var blob = new Blob(byteArrays, {
+                type: contentType
+            });
+            return blob;
+        }
+    }
+});

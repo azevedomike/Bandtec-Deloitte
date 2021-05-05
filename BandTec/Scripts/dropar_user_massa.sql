@@ -1,0 +1,19 @@
+SELECT NAME
+INTO #tblDatabase
+FROM sys.databases
+
+
+DECLARE @BASE VARCHAR(100), @CMD VARCHAR(256)
+
+WHILE EXISTS (SELECT TOP 1 1 FROM #tblDatabase)
+BEGIN
+
+SELECT @BASE = NAME FROM #tblDatabase
+
+SET @CMD = 'DROP USER [ATRAME\luavila]' 
+
+EXEC (@CMD)
+
+DELETE FROM #tblDatabase WHERE @BASE = NAME
+
+END

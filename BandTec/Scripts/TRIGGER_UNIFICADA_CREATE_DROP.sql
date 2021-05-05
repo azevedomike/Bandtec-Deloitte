@@ -1,0 +1,33 @@
+ALTER TRIGGER [Bd_VerificarMovimentacaoBases_i]
+ON ALL SERVER
+FOR CREATE_DATABASE,DROP_DATABASE
+AS
+BEGIN
+DECLARE 
+@DATABASENAME VARCHAR(70),
+@DATE DATETIME,
+@DATA XML
+
+SET @DATA = EVENTDATA();
+
+SET @DATE = GETDATE();
+
+SET @DATABASENAME = @DATA.value('(/EVENT_INSTANCE/DatabaseName)[1]','SYSNAME'); 
+
+IF NOT EXISTS(SELECT name from master..sysdatabases)
+INSERT INTO [SPED_TCC].[dbo].[I_movimentacaoBases] values (
+Suser_Name(),
+@DATABASENAME,
+@DATE,
+'CREATE'
+)
+ELSE
+INSERT INTO [SPED_TCC].[dbo].[I_MovimentacaoBases] values (
+Suser_Name(),
+@DATABASENAME,
+@DATE,
+'DROP'
+)
+
+END 
+GO

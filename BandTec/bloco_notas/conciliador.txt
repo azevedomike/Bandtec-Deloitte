@@ -1,0 +1,5 @@
+As vezes o usuário esquece de apertar o iniciar.
+
+Se não tiver separado por ; irá dar problema na concialiação.
+
+Fazer um controle de conciliador

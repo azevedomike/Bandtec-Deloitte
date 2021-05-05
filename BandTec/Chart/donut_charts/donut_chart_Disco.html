@@ -1,0 +1,93 @@
+
+<!doctype html>
+<html>
+
+<head>
+	
+	<script src="./Chart.min.js"></script>
+	<script src="./utils.js"></script>
+	<style>
+	canvas {
+		-moz-user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+	}
+	</style>
+</head>
+
+<body>
+	<div id="canvas-holder" style="width:40%">
+		<canvas id="chart-area"></canvas>
+	</div>
+	<script>
+		var randomScalingFactor = function() {
+			return Math.round(Math.random() * 100);
+		};
+
+		var config = {
+			type: 'doughnut',
+			data: {
+				datasets: [{
+					data: [
+						randomScalingFactor(),
+						randomScalingFactor()
+					],
+					backgroundColor: [
+						window.chartColors.red,
+						window.chartColors.white
+					],
+					label: 'Dataset 1'
+				}],
+				labels: [
+					'Utilizado',
+					'Livre'
+				]
+			},
+			options: {
+				responsive: true,
+				legend: {
+					position: 'top',
+				},
+				title: {
+					display: true,
+					text: 'Disco'
+				},
+				animation: {
+					animateScale: true,
+					animateRotate: true
+				}
+			}
+		};
+
+		window.onload = function() {
+			var ctx = document.getElementById('chart-area').getContext('2d');
+            window.myDoughnut = new Chart(ctx, config);
+            
+            
+        };
+        window.onload = function() {
+            var ctx = document.getElementById('chart-area').getContext('2d');
+            window.myLine = new Chart(ctx, config);    
+            atualizarGrafico();
+		};
+
+		function atualizarGrafico() {
+			config.data.datasets.forEach(function(dataset) {
+				dataset.data = dataset.data.map(function() {
+					return randomScalingFactor();
+				});
+
+			});
+
+            window.myLine.update();
+            
+            setTimeout(() => {
+               atualizarGrafico(); 
+            }, 3000);
+		};
+
+
+	</script>
+</body>
+
+</html>

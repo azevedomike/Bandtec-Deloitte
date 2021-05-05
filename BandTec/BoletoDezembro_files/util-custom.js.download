@@ -1,0 +1,22 @@
+
+(function () {
+
+    buscarCSSDinamico();
+
+    /**
+     * Carrega o css de forma dinâmica de acordo com a configuração
+     */
+    function buscarCSSDinamico() {
+        var styles = document.createElement('link');
+        styles.rel = 'stylesheet';
+        styles.type = 'text/css';
+        styles.media = 'screen';
+        styles.href = 'assets/css/eduPortalAluno.css';
+
+        if (EDU_CONST_GLOBAL_CUSTOM_CSS) {
+            styles.href = 'assets/custom/css/eduPortalAluno.css';
+        }
+
+        document.getElementsByTagName('head')[0].appendChild(styles);
+    }
+})();

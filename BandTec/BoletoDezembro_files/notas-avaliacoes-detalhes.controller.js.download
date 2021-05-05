@@ -1,0 +1,202 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module notasModule
+ * @name EduNotasAvaliacoesDetalhesController
+ * @object controller
+ *
+ * @created 2016-09-22 v12.1.15
+ * @updated
+ *
+ * @requires notas.module
+ *
+ * @dependencies $scope, $filter, NotasAvaliacoesDetalhesFactory, parametros
+ *
+ * @description Controller das notas das avaliações de uma etapa
+ */
+
+define(['utils/edu-utils.service',
+    'aluno/notas/notas.module',
+    'aluno/notas/notas.factory',
+    'totvs-desktop/totvs-desktop-contexto/totvs-desktop-contexto-curso.factory',
+    'aluno/aulas/aulas.factory',
+    'aluno/disciplina/disciplina.factory'
+], function () {
+
+    'use strict';
+
+    angular
+        .module('eduNotasModule')
+        .controller('eduNotasAvaliacoesDetalhesController', EduNotasAvaliacoesDetalhesController);
+
+    EduNotasAvaliacoesDetalhesController.$inject = [
+        '$scope',
+        '$filter',
+        'EduNotasFactory',
+        'eduUtilsService',
+        'TotvsDesktopContextoCursoFactory',
+        'parametros',
+        '$state',
+        '$modalInstance',
+        'eduAulasFactory',
+        'eduDisciplinaFactory'
+    ];
+
+    function EduNotasAvaliacoesDetalhesController($scope, $filter, EduNotasFactory, eduUtilsService,
+    TotvsDesktopContextoCursoFactory, parametros, $state, $modalInstance, eduAulasFactory, eduDisciplinaFactory) {
+
+        // *********************************************************************************
+        // *** Variables
+        // *********************************************************************************
+
+        var self = this;
+
+        // *********************************************************************************
+        // *** Public Properties and Methods
+        // *********************************************************************************
+        self.notasAvaliacoes = [];
+        self.notasAvaliacoesFiltradas = [];
+        self.nomeDisciplina = null;
+        self.tipoEtapa = 'N';
+
+        self.etapaAlterada = etapaAlterada;
+        self.formatarColunaEtapa = formatarColunaEtapa;
+        self.formatarColunaDtProva = formatarColunaDtProva;
+        self.formatarColunaDtDevolucao = formatarColunaDtDevolucao;
+        self.formatarColunaProva = formatarColunaProva;
+        self.formatarColunaNota = formatarColunaNota;
+        self.onclickMaisInfoDisciplina = onclickMaisInfoDisciplina;
+        self.abrirAula = abrirAula;
+        self.modalInstance = $modalInstance;
+
+        init();
+
+        // *********************************************************************************
+        // *** Controller Initialize
+        // *********************************************************************************
+
+        function init() {
+
+            self.idTurmaDisc = parametros.idTurmaDisc;
+
+            var param = {};
+
+            param.tipoEtapa = self.tipoEtapa;
+            param.idTurmaDisc = parametros.idTurmaDisc;
+
+            buscarDados(param);
+
+        }
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        function buscarDados(param) {
+
+            EduNotasFactory.retornarDetalhesNotasAvaliacoes(param, preencherDados);
+
+        }
+
+        function preencherDados(result) {
+
+            if (result != null && result.length > 0) {
+
+                var i;
+
+                for (i = 0; i < result.length; i++) {
+                    if (result[i].PROVA) {
+                        // só considera as etapas que possuem prova
+                        self.notasAvaliacoes.push(result[i]);
+                    }
+                }
+
+                etapaAlterada();
+                self.nomeDisciplina = result[0].DISCIPLINA;
+                self.codDisciplina = result[0].CODDISC;
+
+            }
+        }
+
+        // filtra as avaliações de acordo com a etapa selecionada
+        function etapaAlterada() {
+
+            var i;
+
+            self.notasAvaliacoesFiltradas = [];
+
+            for (i = 0; i < self.notasAvaliacoes.length; i++) {
+                if (self.etapa == -1 || self.notasAvaliacoes[i].CODETAPA === self.etapa) {
+                    self.notasAvaliacoesFiltradas.push(self.notasAvaliacoes[i]);
+                }
+            }
+
+        }
+
+        function formatarColunaEtapa(item) {
+
+            return eduUtilsService.escapeHtml(item.ETAPA);
+
+        }
+
+        function formatarColunaProva(item) {
+
+            return eduUtilsService.escapeHtml(item.PROVA);
+
+        }
+
+        function formatarColunaDtProva(item) {
+
+            if (item.DTPROVA) {
+
+                var ngClick =  'controller.abrirAula(' + item.IDTURMADISC + ',' + item.IDPLANOAULA + ')';
+
+                return eduAulasFactory.retornarLinkAula(item.IDPLANOAULA, item.DTPROVA, ngClick);
+
+            } else {
+                return '';
+            }
+
+        }
+
+        function formatarColunaDtDevolucao(item) {
+
+            if (item.DTDEVOLUCAOAVALIACAO) {
+                return $filter('date')(item.DTDEVOLUCAOAVALIACAO, 'dd/MM/yyyy');
+            } else {
+                return '';
+            }
+
+        }
+
+        function formatarColunaNota(item) {
+            if (item.NOTAFORMATADA) {
+                return item.NOTAFORMATADA;
+            }
+            else {
+                return '';
+            }
+        }
+
+        function abrirAula(idTurmaDisc, idPlanoAula) {
+
+            eduAulasFactory.exibirInfoAula(idTurmaDisc, idPlanoAula, function () {
+                $modalInstance.dismiss();
+            });
+
+        }
+
+        function onclickMaisInfoDisciplina() {
+
+            eduDisciplinaFactory.ExibirInfoDisciplina(self.idTurmaDisc, self.codDisciplina, function () {
+                $modalInstance.dismiss();
+            });
+
+        }
+
+    }
+});

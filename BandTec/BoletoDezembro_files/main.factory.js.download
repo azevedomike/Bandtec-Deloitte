@@ -1,0 +1,44 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.22
+ * (c) 2015-2018 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+/**
+* @module eduMainModule
+* @name eduMainFactory
+* @object factory
+*
+* @created 08/10/2018 v12.1.22
+* @updated
+*
+* @requires eduMainModule
+*
+* @description Factory utilizada no Main.
+*/
+define(['aluno/main/main.module'], function () {
+
+    'use strict';
+
+    angular
+        .module('eduMainModule')
+        .factory('eduMainFactory', eduMainFactory);
+
+    eduMainFactory.$inject = ['$totvsresource'];
+
+    /**
+     * Factory da página inicial do portal
+     * @param   {object} $totvsresource Objeto responsável pela chamado dos serviços REST
+     * @returns {object} Factory com os serviços
+     */
+    function eduMainFactory($totvsresource) {
+
+        var url = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/:method',
+            factory;
+
+        factory = $totvsresource.REST(url, {}, {});
+
+        return factory;
+    }
+});

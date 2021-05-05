@@ -1,0 +1,108 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ * @description
+ */
+
+define(['aluno/notas/notas.module',
+        'aluno/notas/notas.route',
+        'aluno/notas/notas.factory',
+        'utils/reports/edu-relatorio.service',
+        'utils/edu-utils.factory',
+        'widgets/widget.constants',
+        'utils/edu-constantes-globais.constants'
+], function () {
+
+    'use strict';
+
+    angular
+        .module('eduNotasModule')
+        .controller('eduNotasListaController', EduNotasListaController);
+
+    EduNotasListaController.$inject = ['$scope', '$rootScope', 'eduUtilsFactory', 'eduRelatorioService', 'eduWidgetsConsts', 'eduConstantesGlobaisConsts', 'totvs.app-notification.Service', '$state', 'i18nFilter'];
+
+    function EduNotasListaController($scope, $rootScope, eduUtilsFactory, eduRelatorioService, eduWidgetsConsts, eduConstantesGlobaisConsts, totvsNotification, $state, i18nFilter) {
+
+        var self = this,
+        codRelatorioImpressao = null,
+        codColRelatorioImpressao = null;
+
+        self.idFuncionalidade = eduWidgetsConsts.EduWidgetsFuncionalidade.Notas;
+        self.periodoLetivoAlterado = periodoLetivoAlterado;
+        self.exibeTab = exibeTab;
+        self.periodoLetivo = 0;
+        self.permiteImprimir = false;
+        self.imprimir = imprimir;
+
+        init();
+
+        function init() {
+            carregarParametrosEdu();
+        }
+
+        /* Valida se o usuário tem permissão no Menu */
+        var permissionsWatch = $rootScope.$watch('objPermissions', function () {
+            if ($rootScope.objPermissions) {
+                if (!$rootScope.objPermissions.EDU_ACADEMICO_CENTRALALUNO_NOTAS) {
+                    totvsNotification.notify({
+                        type: 'warning',
+                        title: i18nFilter('l-Atencao'),
+                        detail: i18nFilter('l-usuario-sem-permissao')
+                    });
+                    $state.go(eduConstantesGlobaisConsts.EduStateViewPadrao);
+                }
+
+                //destroy watch
+                permissionsWatch();
+            }
+        });
+
+        function carregarParametrosEdu () {
+            eduUtilsFactory.getParametrosTOTVSEducacionalAsync(function (parametros) {
+                codRelatorioImpressao = parametros.CodRelatorioConsultaNotaReports;
+                codColRelatorioImpressao = parametros.CodColRelatorioConsultaNotaReports;
+                self.permiteImprimir = !!codRelatorioImpressao;
+            });
+        }
+
+        /* Dispara o evento para os controles filhos quando o o periodo letivo for alterado. */
+        function periodoLetivoAlterado() {
+            $scope.$broadcast('alteraPeriodoLetivoEvent');
+        }
+
+        /**
+         * Valida a permissão para cada Tab
+         *
+         * @param {string} tabName - Nome da tab
+         * @returns True or False
+         */
+        function exibeTab (tabName) {
+            var exibe = false;
+
+            if ($rootScope.objPermissions === null) {
+                return exibe;
+            }
+
+            switch (tabName) {
+                case 'notas-etapas':
+                    exibe =  angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_CENTRALALUNO_NOTAS_NOTASETAPA);
+                    break;
+                case 'notas-avaliacoes':
+                    exibe = angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_CENTRALALUNO_NOTAS_NOTASAVALIACOES);
+                    break;
+                case 'notas-entregas':
+                    exibe = angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_CENTRALALUNO_NOTAS_ENTREGAS);
+                    break;
+            }
+            return exibe;
+        }
+
+        /* Executa emissão do relatório associado a visão(Parametrizado no sistema). */
+        function imprimir() {
+            if (codRelatorioImpressao) {
+                eduRelatorioService.emitirRelatorio(codRelatorioImpressao, codColRelatorioImpressao);
+            }
+        }
+    }
+});

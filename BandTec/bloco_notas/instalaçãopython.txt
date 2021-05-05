@@ -1,0 +1,1 @@
+Verificar com o tsuda, cesar para liberar instalação do Python 

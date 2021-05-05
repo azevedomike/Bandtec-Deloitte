@@ -1,0 +1,154 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduAulasModule
+ * @name eduAulasResumoListController
+ * @object controller
+ *
+ * @created 2016-11-23 v12.1.15
+ * @updated
+ *
+ * @requires Aulas.module
+ *
+ * @dependencies eduAulasFactory
+ *
+ * @description Controller do resumo da aula
+ */
+define([
+    'aluno/aulas/aulas.module',
+    'aluno/aulas/aulas.route',
+    'aluno/aulas/aulas.factory',
+    'aluno/disciplina/disciplina.factory'
+], function () {
+
+    'use strict';
+
+    angular.module('eduAulasModule')
+        .controller('eduAulasResumoListController', eduAulasResumoListController);
+
+    eduAulasResumoListController.$inject = ['$scope',
+        '$filter',
+        '$state',
+        'eduAulasFactory',
+        'parametros',
+        '$rootScope',
+        '$sce',
+        '$modalInstance',
+        'eduDisciplinaFactory'
+    ];
+
+    function eduAulasResumoListController($scope,
+        $filter,
+        $state,
+        eduAulasFactory,
+        parametros,
+        $rootScope,
+        $sce,
+        $modalInstance,
+        eduDisciplinaFactory) {
+
+        // *********************************************************************************
+        // *** Variables
+        // *********************************************************************************
+        var self = this;
+        self.permissaoPlanoAula = false;
+
+        // *********************************************************************************
+        // *** Public Properties and Methods
+        // *********************************************************************************
+
+        self.getDescTipoAula = getDescTipoAula;
+        self.onclickAulasDoDia = onclickAulasDoDia;
+        self.onclickMaisInfoDisciplina = onclickMaisInfoDisciplina;
+        self.onclickMaisInfoAula = onclickMaisInfoAula;
+        self.modalInstance = $modalInstance;
+
+        // *********************************************************************************
+        // *** Controller Initialize
+        // *********************************************************************************
+        init();
+
+        function init() {
+
+            self.idTurmaDisc = parametros.idTurmaDisc;
+            self.idPlanoAula = parametros.idPlanoAula;
+            self.exibeLicaoCasa = parametros.exibeLicaoCasa;
+
+            // verifica se possui permissão para visualizar o plano de aula
+            self.permissaoPlanoAula = angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_PLANOAULA);
+
+            buscarDados();
+
+        }
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        function buscarDados() {
+
+            eduAulasFactory.retornarDetalhesAula(self.idTurmaDisc, self.idPlanoAula, function (result) {
+                if (result) {
+
+                    self.aula = result.SPlanoAula[0];
+
+                    /* trata campos com possíveis tags HTML */
+                    self.aula.CONTEUDO = $sce.trustAsHtml(self.aula.CONTEUDO);
+                    self.aula.CONTEUDOEFETIVO = $sce.trustAsHtml(self.aula.CONTEUDOEFETIVO);
+                    self.aula.LICAOCASA = $sce.trustAsHtml(self.aula.LICAOCASA);
+
+                    self.aula.local = eduAulasFactory.montarDescricaoLocal(self.aula.PREDIO, self.aula.BLOCO, self.aula.SALA);
+                }
+            });
+
+        }
+
+        function getDescTipoAula(tipoAula) {
+
+            return eduAulasFactory.getDescTipoAula(tipoAula);
+
+        }
+
+        /**
+         * Redireciona para a página da turma/disciplina
+         *
+         */
+        function onclickMaisInfoDisciplina() {
+
+            eduDisciplinaFactory.ExibirInfoDisciplina(self.idTurmaDisc, self.aula.CODDISC, function () {
+                $modalInstance.dismiss();
+            });
+
+        }
+
+        /**
+         * Redireciona para a página da aula
+         *
+         */
+        function onclickMaisInfoAula() {
+
+            eduAulasFactory.exibirInfoAula(self.idTurmaDisc, self.idPlanoAula, function () {
+                $modalInstance.dismiss();
+            });
+
+        }
+
+        /**
+         * Redireciona para a página de plano de aulas (Aulas do dia)
+         *
+         */
+        function onclickAulasDoDia() {
+
+            eduAulasFactory.exibirAulasDoDia(self.aula.DATA, function () {
+                $modalInstance.dismiss();
+            });
+
+        }        
+
+
+    }
+});

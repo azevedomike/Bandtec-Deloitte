@@ -1,0 +1,1 @@
+wmic logicaldisk get name, size, freespace, caption

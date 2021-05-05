@@ -1,0 +1,197 @@
+define(['aluno/aulas/aulas.module',
+        'aluno/aulas/aulas-resumo.controller',
+        'utils/edu-enums.constants'
+        ], function () {
+
+    'use strict';
+
+    angular
+        .module('eduAulasModule')
+        .factory('eduAulasFactory', EduAulasFactory);
+
+    EduAulasFactory.$inject = ['$totvsresource',
+                               '$modal',
+                               '$filter',
+                               'eduEnumsConsts',
+                               '$state',
+                               '$rootScope'
+                               ];
+
+    function EduAulasFactory($totvsresource, $modal, $filter, eduEnumsConsts, $state, $rootScope) {
+
+        var url = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/:method/:idTurmaDisc',
+            factory,
+            urlAula = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/:method',
+            factoryAula;
+
+        factory = $totvsresource.REST(url, {}, {});
+        factory.retornarAulasDisciplinaPlanoAula = retornarAulasDisciplinaPlanoAula;
+        factory.retornarDetalhesAula = retornarDetalhesAula;
+        factory.retornarArquivosAula = retornarArquivosAula;
+        factory.retornarArquivo = retornarArquivo;
+        factory.exibirResumoAula = exibirResumoAula;
+        factory.exibirAulasDoDia = exibirAulasDoDia;
+        factory.montarDescricaoLocal = montarDescricaoLocal;
+        factory.getDescTipoAula = getDescTipoAula;
+        factory.exibirInfoAula = exibirInfoAula;
+        factory.retornarLinkAula = retornarLinkAula;
+
+        factoryAula = $totvsresource.REST(urlAula, {}, {});
+
+        return factory;
+
+        // *********************************************************************************
+        // *** Functions
+        // *********************************************************************************
+
+        function retornarAulasDisciplinaPlanoAula(idTurmaDisc, codSubTurma, dataInicio, dataFim, callback) {
+
+            var parameters = {
+                method: 'AulasDisciplina',
+                idTurmaDisc: idTurmaDisc,
+                codSubTurma: codSubTurma,
+                dataInicio: dataInicio,
+                dataFim: dataFim
+            };
+
+            return factory.TOTVSQuery(parameters, callback);
+        }
+
+        function retornarDetalhesAula(idTurmaDisc, idPlanoAula, callback) {
+
+            var parameters = {
+                method: 'PlanoAula/Aula',
+                idTurmaDisc: idTurmaDisc,
+                idPlanoAula: idPlanoAula
+            };
+
+            factoryAula.TOTVSGet(parameters, callback);
+        }
+
+        function retornarArquivosAula(start, limit, idTurmaDisc, idPlanoAula, callback) {
+
+            var parameters = {
+                method: 'PlanoAula/ArquivoAula',
+                idTurmaDisc: idTurmaDisc,
+                idPlanoAula: idPlanoAula,
+                start: start,
+                limit: limit
+            };
+
+            factoryAula.TOTVSQuery(parameters, callback);
+        }
+
+        function retornarArquivo(idMaterialSec, pathArquivo) {
+
+            var urlDownload = CONST_GLOBAL_URL_BASE_SERVICOS + 'TOTVSEducacional/Material/Download?' +
+                'idMaterialSec=' + idMaterialSec + '&pathArquivo=' + pathArquivo;
+
+            return urlDownload;
+        }
+
+        function exibirResumoAula(idTurmaDisc, idPlanoAula, codDisc, exibeLicaoCasa) {
+
+            var params = {
+                idTurmaDisc: idTurmaDisc,
+                idPlanoAula: idPlanoAula,
+                codDisc: codDisc,
+                exibeLicaoCasa: exibeLicaoCasa
+            };
+
+            $modal.open({
+                templateUrl: EDU_CONST_GLOBAL_URL_BASE_APP + '/js/aluno/aulas/aulas-resumo.view.html',
+                controller: 'eduAulasResumoListController',
+                controllerAs: 'controller',
+                size: 'md',
+                resolve: {
+                    parametros: function () {
+                        return params;
+                    }
+                },
+                backdrop: 'true'
+            });
+
+        }
+
+        function montarDescricaoLocal(predio, bloco, sala) {
+
+            var local = '';
+
+            if (predio) {
+                local += $filter('i18n')('l-predio', [], 'js/aluno/aulas') + ': ' + predio;
+            }
+
+            if (bloco) {
+                local += ', ' + $filter('i18n')('l-bloco', [], 'js/aluno/aulas') + ': ' + bloco;
+            }
+
+            if (sala) {
+                local += ', ' + $filter('i18n')('l-sala', [], 'js/aluno/aulas') + ': ' + sala;
+            }
+
+            return local;
+
+        }
+
+        function getDescTipoAula(tipoAula) {
+
+            switch (tipoAula) {
+                case eduEnumsConsts.TipoAula.Teorica:
+                    return $filter('i18n')('l-aulateorica', [], 'js/aluno/aulas');
+                case eduEnumsConsts.TipoAula.Pratica:
+                    return $filter('i18n')('l-aulapratica', [], 'js/aluno/aulas');
+                case eduEnumsConsts.TipoAula.Laboratorio:
+                    return $filter('i18n')('l-laboratorio', [], 'js/aluno/aulas');
+                case eduEnumsConsts.TipoAula.Estagio:
+                    return $filter('i18n')('l-estagio', [], 'js/aluno/aulas');
+                default:
+                    break;
+            }
+
+        }
+
+        function exibirInfoAula(idTurmaDisc, idPlanoAula, callback) {
+
+            var params = {
+                idTurmaDisc: idTurmaDisc,
+                idPlanoAula: idPlanoAula
+            };
+
+            $state.go('aulas.detalhe', params);
+
+            if (callback) {
+                callback();
+            }
+
+        }
+
+        function retornarLinkAula(idPlanoAula, dataAula, ngClick) {
+
+            // verifica se possui permissão para visualizar o plano de aula
+            var possuiPermissao = angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_PLANOAULA);
+
+            if (possuiPermissao && idPlanoAula) {
+                return '<a ng-click="' + ngClick + '">' +
+                        $filter('date')(dataAula, 'dd/MM/yyyy') + '</a>';
+            }
+            else {
+                return $filter('date')(dataAula, 'dd/MM/yyyy');
+            }
+
+        }
+
+        function exibirAulasDoDia(data, callback) {
+
+            var params = {
+                DataAulas: data
+            };
+
+            $state.go('plano-aula.iniciar', params);
+
+            if (callback) {
+                callback();
+            }
+
+        }
+    }
+});

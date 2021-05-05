@@ -1,0 +1,705 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module eduAvaliacoesModule
+ * @name EduAvaliacoesController
+ * @object controller
+ *
+ * @created 2016-09-05 v12.1.15
+ * @updated
+ *
+ * @requires avaliacoes.module
+ *
+ * @dependencies eduAvaliacoesFactory
+ *
+ * @description Controller de Avaliações
+ */
+define(['utils/edu-utils.service',
+	'aluno/avaliacoes/avaliacoes.module',
+	'aluno/avaliacoes/avaliacoes.route',
+	'aluno/avaliacoes/avaliacoes.factory',
+	'aluno/avaliacoes/avaliacoes.service',
+	'aluno/aulas/aulas.factory'
+], function () {
+
+	'use strict';
+
+	angular.module('eduAvaliacoesModule')
+		.controller('eduAvaliacoesController', EduAvaliacoesController);
+
+	EduAvaliacoesController.$inject = ['$scope',
+		'$filter',
+		'eduAvaliacoesFactory',
+		'eduAvaliacoesService',
+		'MatriculaDisciplinaService',
+		'eduUtilsService',
+		'TotvsDesktopContextoCursoFactory',
+		'$state',
+		'eduAulasFactory'
+	];
+
+	/**
+	 * Controller
+	 *
+	 * @param {any}  $scope scope
+	 * @param {any} $filter - filter
+	 * @param {any} eduAvaliacoesFactory - Factory de Avaliações
+	 * @param {any} eduAvaliacoesService - Service de Avaliações
+	 * @param {any} MatriculaDisciplinaService - Service de matrícula/disciplina
+	 * @param {any} eduUtilsService - service de utilitários
+	 * @param {any} TotvsDesktopContextoCursoFactory - Factory principal
+	 * @param {any} $state - state
+	 * @param {any} eduAulasFactory - Factory de Aulas
+	 */
+	function EduAvaliacoesController($scope,
+		$filter,
+		eduAvaliacoesFactory,
+		eduAvaliacoesService,
+		MatriculaDisciplinaService,
+		eduUtilsService,
+		TotvsDesktopContextoCursoFactory,
+		$state,
+		eduAulasFactory) {
+
+		// *********************************************************************************
+		// *** Variables
+		// *********************************************************************************
+
+		var self = this;
+
+		// *********************************************************************************
+		// *** Public Properties and Methods
+		// *********************************************************************************
+
+		self.Avaliacoes = [];
+		self.avaliacoesFiltradas = [];
+		self.disciplina = null;
+		self.ehTelaDisciplina = false;
+		self.possuiAvaliacaoDescritiva = false;
+		self.disciplinaAlterada = disciplinaAlterada;
+		self.abrirDetalhesDisciplina = abrirDetalhesDisciplina;
+		self.abrirDetalhesAvaliacao = abrirDetalhesAvaliacao;
+
+		self.formatarColunaSituacaoMatricula = formatarColunaSituacaoMatricula;
+		self.formatarColunaEtapa = formatarColunaEtapa;
+		self.formatarColunaDtAvaliacao = formatarColunaDtAvaliacao;
+		self.formatarColunaAvaliacao = formatarColunaAvaliacao;
+		self.formatarColunaDisciplina = formatarColunaDisciplina;
+		self.formatarColunaValor = formatarColunaValor;
+		self.formatarColunaNota = formatarColunaNota;
+		self.formatarColunaDetalhes = formatarColunaDetalhes;
+		self.formatarColunaSituacaoResultado = formatarColunaSituacaoResultado;
+		self.formatarCabecalhoNota = formatarColunaNota;
+		self.onData = onData;
+		self.exibirResumoAula = exibirResumoAula;
+		self.refresh = false;
+
+		// Assina o evento de alteração de período
+		$scope.$on('alteraPeriodoLetivoEvent', function () {
+			self.refresh = true;
+			retornaAvaliacoes();
+		});
+
+		init();
+
+		// *********************************************************************************
+		// *** Controller Initialize
+		// *********************************************************************************
+
+		/**
+		 * Inicializa os dados do grid.
+		 */
+		function init() {
+
+			// se recebeu o idTurmaDisc, exibe os dados apenas desta disciplina
+			if ($state.params.idTurmaDisc && $state.params.idTurmaDisc !== -1) {
+				self.disciplina = $state.params.idTurmaDisc;
+				self.ehTelaDisciplina = true;
+			}
+			configurarGridOptions();
+			retornaAvaliacoes();
+		}
+
+
+		// *********************************************************************************
+		// *** Functions
+		// *********************************************************************************
+
+		/**
+		 * Retorna a lista de avaliações
+		 */
+		function retornaAvaliacoes() {
+			self.Avaliacoes = [];
+
+			if (self.ehTelaDisciplina) {
+				var param = {};
+				param.idTurmaDisc = self.disciplina;
+				eduAvaliacoesFactory.retornaAvaliacoesTurmaDisc(param, function (result) {
+					preencherAvaliacoes(result);
+				});
+			} else {
+				eduAvaliacoesFactory.retornaAvaliacoes(function (result) {
+					preencherAvaliacoes(result);
+					if (self.disciplina && self.disciplina !== -1) {
+						disciplinaAlterada();
+					}
+				});
+			}
+
+		}
+
+		function preencherAvaliacoes(result) {
+
+			result.forEach(function (valor) {
+
+				self.Avaliacoes.push(valor);
+
+				// só exibe a legenda de avaliação descritiva, quando houver
+				if (valor.CODPROVATESTIS) {
+					self.possuiAvaliacaoDescritiva = true;
+				}
+
+			});
+
+			self.avaliacoesFiltradas = self.Avaliacoes;
+
+		}
+
+		/**
+		 * Evento disparado ao quando está ocorrendo a vinculação dos dados a partir da fonte de dados.
+		 *
+		 * @param {any} event - evento
+		 */
+		function onDataBound(event) {
+
+			var grid = self.myGrid;
+			if (grid) {
+				for (var i = 0; i < grid.columns.length; i++) {
+					grid.showColumn(i);
+				}
+				// Percorremos as colunas que estão agrupadas, que são identificadas pela
+				// class k-group-indicator, dessa forma aplicamos o hide.
+				$('div.k-group-indicator').each(function (i, v) {
+					var fieldName = $(v).data('field').toString().replace(/'/g, "\"");
+					grid.hideColumn(fieldName);
+				});
+				// quando for tela de disciplina, deverá ocultar a coluna
+				if (self.ehTelaDisciplina) {
+					grid.hideColumn('DISCIPLINA');
+				}
+			}
+		}
+
+		/**
+		 * Evento disparado ao realizar o carregamento dos dados.
+		 *
+		 * @param {any} data - dados
+		 */
+		function onData(data) {
+			var grid = self.myGrid;
+			if (grid) {
+				grid.bind('dataBound', onDataBound);
+			}
+		}
+
+		/**
+		 * Configura o grid options (propriedades/comportamentos/atributos)
+		 */
+		function configurarGridOptions() {
+            var _group = [];
+
+            if (self.ehTelaDisciplina) {
+                _group.push({
+                    field: 'ETAPA',
+                    aggregates: [{
+                        field: 'NOTA',
+                        aggregate: 'sum'
+                    },
+                    {
+                        field: 'VALOR',
+                        aggregate: 'sum'
+                    }
+                    ]
+                });
+            }
+
+			self.gridOptions = {
+				columns: definirColunas(),
+				dataSource: {
+					data: self.avaliacoesFiltradas,
+					group: _group
+				},
+				sortable: true,
+				groupable: {
+					messages: {
+						empty: $filter('i18n')('grid-agrupamento-vazio')
+					}
+				},
+				resizable: true,
+				selectable: false
+			};
+		}
+
+		/**
+		 *  Realiza o filtro das disciplinas de acordo com a seleção
+		 */
+		function disciplinaAlterada() {
+			var i;
+
+			self.avaliacoesFiltradas = [];
+			for (i = 0; i < self.Avaliacoes.length; i++) {
+				if (self.disciplina === -1 || self.disciplina === self.Avaliacoes[i].IDTURMADISC) {
+					self.avaliacoesFiltradas.push(self.Avaliacoes[i]);
+				}
+			}
+		}
+
+		/**
+		 * Abri o modal de Detalhes da Disciplina
+		 *
+		 * @param {number} idTurmaDisc - Idenficador Turma/Disciplina
+		 */
+		function abrirDetalhesDisciplina(idTurmaDisc) {
+			var contexto, codColigada, ra;
+
+			contexto = TotvsDesktopContextoCursoFactory.getCursoSelecionado();
+			codColigada = contexto.cursoSelecionado.CODCOLIGADA;
+			ra = contexto.cursoSelecionado.RA;
+
+			MatriculaDisciplinaService.exibirDetalhesMatriculaDisciplina(codColigada, idTurmaDisc, ra);
+		}
+
+		/**
+		 * Abri o modal de Detalhes da Avaliação
+		 *
+		 * @param {int} idTurmaDisc - Identificador turma disciplina
+		 * @param {int} codEtapa - código da etapa
+		 * @param {string} tipoEtapa - tipo da etapa
+		 * @param {string} codProva - código da prova
+		 * @param {string} disciplina - disciplina
+		 * @param {float} nota - nota
+		 * @param {string} situacaoResultado - situação do resultado
+		 * @param {string} codProvaTestis - codigo da prova no Testis
+		 * @param {int} codDisc - código da disciplina
+		 * @param {int} idPlanoAula - identificador do plano de aula
+		 */
+		function abrirDetalhesAvaliacao(idTurmaDisc, codEtapa, tipoEtapa, codProva, disciplina, nota,
+			situacaoResultado, codProvaTestis, codDisc, idPlanoAula) {
+			eduAvaliacoesService.exibirDetalhesAvaliacao(idTurmaDisc, codEtapa, tipoEtapa, codProva, disciplina,
+				nota, situacaoResultado, codProvaTestis, codDisc, idPlanoAula);
+		}
+
+		/**
+		 * Esta função tem o objetivo de retornar o texto da "Situação do resultado" da Avaliação
+		 * para ser exibido dentro do Modal de Detalhes da Avaliação.
+		 *
+		 * @param {any} SituacaoResultado - cód. da situação do resultado
+		 * @returns conteudo formatado
+		 */
+		function retornaSituacaoResultado(SituacaoResultado) {
+			var conteudo;
+			switch (SituacaoResultado) {
+				case 1:
+					conteudo = obterNomeCampos('l-acimaMedia');
+					break;
+				case 2:
+                    conteudo = obterNomeCampos('l-abaixoMedia');
+					break;
+				case 3:
+					conteudo = obterNomeCampos('l-aguardandoNota');
+					break;
+				case 4:
+					conteudo = obterNomeCampos('l-pendente');
+					break;
+				case 5:
+					conteudo = obterNomeCampos('l-perdida');
+					break;
+				case 6:
+					conteudo = obterNomeCampos('l-avaliacao-descritiva');
+					break;
+				default:
+					conteudo = '';
+					break;
+			}
+			return conteudo;
+		}
+
+		/**
+		 * Retorna o identificador da turma disciplina de acordo com a disciplina passada por parâmetro
+		 *
+		 * @param {string} disciplina - disciplina
+		 * @returns Id. Turma Disciplina
+		 */
+		function retornaIdTurmaDisc(disciplina) {
+			var idTurmaDisc = 0,
+				disciplinaObjeto = $.grep(self.avaliacoesFiltradas, function (e) {
+					return e.DISCIPLINA === disciplina;
+				});
+
+			if (disciplinaObjeto && disciplinaObjeto.length > 0) {
+				idTurmaDisc = disciplinaObjeto[0].IDTURMADISC;
+			}
+			return idTurmaDisc;
+		}
+
+		// *********************************************************************************
+		// *** Formatação das colunas
+		// *********************************************************************************
+
+		/**
+		 * Formata a coluna de Situação
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaSituacaoResultado(item) {
+
+			if (item.SITUACAORESULTADO == null) {
+				return '';
+			}
+
+			var conteudo;
+			switch (item.SITUACAORESULTADO) {
+				case 1:
+					conteudo = '<span class="legenda legenda-verde legenda-content-1"></span>';
+					break;
+				case 2:
+					conteudo = '<span class="legenda legenda-vermelho legenda-content-2"></span>';
+					break;
+				case 3:
+					conteudo = '<span class="legenda legenda-amarelo legenda-content-3"></span>';
+					break;
+				case 4:
+					conteudo = '<span class="legenda legenda-azul legenda-content-4"></span>';
+					break;
+				case 5:
+					conteudo = '<span class="legenda legenda-laranja legenda-content-5"></span>';
+					break;
+				case 6:
+					conteudo = '<span class="legenda legenda-cinza legenda-content-6"></span>';
+					break;
+			}
+
+			return '<span>' + conteudo + '</span>';
+		}
+
+		/**
+		 * Formata a coluna de situação da matrícula
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaSituacaoMatricula(item) {
+
+			if (item.SITUACAO == null) {
+				return '';
+			}
+			return '<span tooltip-append-to-body="appendToBody=true" ' +
+				'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.SITUACAO) + '">' +
+				eduUtilsService.escapeHtml(item.SITUACAO) +
+				'</span>';
+		}
+
+		/**
+		 * Formata a coluna de etapas
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaEtapa(item) {
+
+			if (item.ETAPA == null) {
+				return '';
+			}
+			return '<span tooltip-append-to-body="appendToBody=true" ' +
+				'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.ETAPA) + '">' +
+				eduUtilsService.escapeHtml(item.ETAPA) +
+				'</span>';
+		}
+
+		/**
+		 * Formata a coluna de data de avaliação
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaDtAvaliacao(item) {
+
+			if (item.DTPROVA == null) {
+				return '';
+			}
+
+			var ngClick = 'controller.exibirResumoAula(' + item.IDTURMADISC + ',' + item.IDPLANOAULA + ',\'' + item.CODDISC + '\')';
+
+			return eduAulasFactory.retornarLinkAula(item.IDPLANOAULA, item.DTPROVA, ngClick);
+
+		}
+
+		function exibirResumoAula(idTurmaDisc, idPlanoAula, codDisc) {
+
+			eduAulasFactory.exibirResumoAula(idTurmaDisc, idPlanoAula, codDisc);
+
+		}
+
+		/**
+		 * Formata a coluna de Avaliações
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaAvaliacao(item) {
+
+			if (item.PROVA == null) {
+				return '';
+			}
+			return '<span tooltip-append-to-body="appendToBody=true" ' +
+				'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.PROVA) + '">' +
+				eduUtilsService.escapeHtml(item.PROVA) +
+				'</span>';
+		}
+
+		/**
+		 * Formata a coluna de Disciplina
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaDisciplina(item) {
+
+			if (item.DISCIPLINA == null) {
+					return '';
+			}
+			return '<a tooltip-append-to-body="appendToBody=true" ' +
+				'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.DISCIPLINA) + '"' +
+				'ng-click="controller.abrirDetalhesDisciplina(' + item.IDTURMADISC + ')">' +
+				eduUtilsService.escapeHtml(item.DISCIPLINA) + '</a>';
+		}
+
+		/**
+		 * Formata a coluna de Valores
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaValor(item) {
+
+			if (item.VALORFORMATADO == null) {
+				return '';
+			}
+			return '<span>' + item.VALORFORMATADO + '</span>';
+		}
+
+		/**
+		 * Formata a acoluna de Notas
+		 *
+		 * @param {any} ititem - itemem
+		 * @returns
+		 */
+		function formatarColunaNota(item) {
+
+			if (item.NOTAFORMATADA == null) {
+				return '';
+			}
+			return '<span>' + item.NOTAFORMATADA + '</span>';
+		}
+
+		/**
+		 * Formata a coluna de Detalhes
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarColunaDetalhes(item) {
+
+			if (item.PROVA == null)
+				return '';
+			
+			var retorno = '<span><a ng-click="controller.abrirDetalhesAvaliacao(' +
+				"'" + item.IDTURMADISC + "'," +
+				"'" + item.CODETAPA + "'," +
+				"'" + item.TIPOETAPA + "'," +
+				"'" + item.CODPROVA + "'," +
+				"'" + escape(item.DISCIPLINA) + "'," +
+				"'" + item.NOTAFORMATADA + "'," +
+				"'" + retornaSituacaoResultado(item.SITUACAORESULTADO) + "'," +
+				"'" + item.CODPROVATESTIS + "'," +
+				"'" + item.CODDISC + "'";
+
+			if (item.IDPLANOAULA) {
+				retorno += ',' + item.IDPLANOAULA;
+			}
+
+			retorno += ')">Detalhes</a></span>';
+
+			return retorno;
+		}
+
+
+		/**
+		 * Formata o cabeçalho da coluna de agrupamento
+		 *
+		 * @param {any} item - item
+		 * @returns
+		 */
+		function formatarCabecalhoGrupo(item) {
+			return '<a tooltip-append-to-body="appendToBody=true" ' +
+				'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.value) + '"' +
+				'ng-click="controller.abrirDetalhesDisciplina(' + retornaIdTurmaDisc(item.value) + ')"> Disciplina: ' +
+				eduUtilsService.escapeHtml(item.value) + '</a>';
+		}
+
+
+		/**
+		 * Formata o header da coluna Data após ser agrupada.
+		 *
+		 * @param {any} item - coluna agrupada
+		 * @returns Texto no formato data (dd/MM/yyyy)
+		 */
+		function formataAgrupamentoDataProva(item) {
+			if (item.value === null) {
+				return '';
+			}
+			return obterNomeCampos('l-data') + ': ' + $filter('date')(item.value, 'dd/MM/yyyy');
+		}
+
+		function formatarCabecalhoNota(item) {}
+
+		function formatarHeaderSituacao(item) {
+
+			var conteudo;
+			switch (item.value) {
+				case 1:
+					conteudo = '<span class="legenda legenda-verde legenda-content-1">' +
+						obterNomeCampos('l-acimaMedia') + '</span>';
+					break;
+				case 2:
+					conteudo = '<span class="legenda legenda-vermelho legenda-content-2">' +
+						obterNomeCampos('l-abaixoMedia') + '</span>';
+					break;
+				case 3:
+					conteudo = '<span class="legenda legenda-amarelo legenda-content-3">' +
+						obterNomeCampos('l-aguardandoNota') + '</span>';
+					break;
+				case 4:
+					conteudo = '<span class="legenda legenda-azul legenda-content-4">' +
+						obterNomeCampos('l-pendente') + '</span>';
+					break;
+				case 5:
+					conteudo = '<span class="legenda legenda-laranja legenda-content-5">' +
+						obterNomeCampos('l-perdida') + '</span>';
+					break;
+				case 6:
+					conteudo = '<span class="legenda legenda-cinza legenda-content-6">' + obterNomeCampos('l-avaliacao-descritiva') + '</span>';
+					break;
+			}
+
+			return '<span>' + conteudo + '</span>';
+		}
+
+		/**
+		 * Define as propriedades e atributos de cada coluna.
+		 *
+		 * @returns Array de objetos
+		 */
+		function definirColunas() {
+
+			return [{
+				field: 'SITUACAORESULTADO',
+				template: formatarColunaSituacaoResultado,
+				attributes: {
+					'class': 'gridRow textAlignCenter'
+				},
+				width: '8%',
+				title: obterNomeCampos('l-classificacao-avaliacao'),
+				groupHeaderTemplate: formatarHeaderSituacao
+			}, {
+				field: 'DISCIPLINA',
+				template: formatarColunaDisciplina,
+				attributes: {
+					'class': 'gridRow textAlignLeft'
+				},
+				width: '25%',
+				title: obterNomeCampos('l-disciplina'),
+				groupHeaderTemplate: formatarCabecalhoGrupo
+			}, {
+				field: 'ETAPA',
+				template: formatarColunaEtapa,
+				attributes: {
+					'class': 'gridRow textAlignLeft'
+				},
+				width: '15%',
+				title: obterNomeCampos('l-etapa'),
+				groupHeaderTemplate: obterNomeCampos('l-etapa') + ': #= value#'
+			}, {
+				field: 'DTPROVA',
+				template: formatarColunaDtAvaliacao,
+				attributes: {
+					'class': 'gridRow textAlignCenter'
+				},
+				width: '10%',
+				title: obterNomeCampos('l-data'),
+				groupHeaderTemplate: formataAgrupamentoDataProva
+			}, {
+				field: 'PROVA',
+				template: formatarColunaAvaliacao,
+				attributes: {
+					'class': 'gridRow textAlignLeft'
+				},
+				width: '25%',
+				title: obterNomeCampos('l-atividade'),
+				groupHeaderTemplate: obterNomeCampos('l-atividade') + ': #= value#'
+			}, {
+				field: 'VALOR',
+				template: formatarColunaValor,
+				attributes: {
+					'class': 'gridRow textAlignRight'
+				},
+				width: '10%',
+				title: obterNomeCampos('l-valor'),
+				groupable: false
+			}, {
+				field: 'NOTA',
+				template: formatarColunaNota,
+				attributes: {
+					'class': 'gridRow textAlignRight'
+				},
+				width: '10%',
+				title: obterNomeCampos('l-nota'),
+				groupable: false
+			}, {
+				title: '&nbsp',
+				template: formatarColunaDetalhes,
+				width: '10%',
+				attributes: {
+					'class': 'gridRow textAlignCenter'
+				},
+				groupable: false
+
+			}];
+		}
+
+		function obterNomeCampos(nomeCampo) {
+			return $filter('i18n')(nomeCampo, [], 'js/aluno/avaliacoes');
+		}
+
+		function formatarRodapeTemplateValor(e) {
+			var label = $filter('i18n')('l-aggregate-total', [], 'js/aluno/avaliacoes');
+			if (e.VALOR.sum) {
+				return label + $filter('number')(e.VALOR.sum, 2);
+			}
+			return '';
+		}
+
+		function formatarRodapeTemplateNota(e) {
+			var label = $filter('i18n')('l-aggregate-total', [], 'js/aluno/avaliacoes');
+			if (e.NOTA.sum) {
+				return label + $filter('number')(e.NOTA.sum, 2);
+			}
+			return '';
+		}
+	}
+});

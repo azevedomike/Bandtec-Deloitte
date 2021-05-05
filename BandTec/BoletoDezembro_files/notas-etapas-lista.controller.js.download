@@ -1,0 +1,436 @@
+/**
+ * @license TOTVS | Portal - TOTVS Educacional v12.1.15
+ * (c) 2015-2016 TOTVS S/A https://www.totvs.com
+ * License: Comercial
+ */
+
+/**
+ * @module notasModule
+ * @name NotasEtapasListaController
+ * @object directive
+ *
+ * @created 2016-09-16 v12.1.15
+ * @updated
+ *
+ * @requires notas.module
+ *
+ * @dependencies TotvsDesktopContextoCursoFactory, NotasFactory
+ *
+ * @description Controller da lista de notas
+ */
+define(['aluno/notas/notas.module',
+    'aluno/notas/notas.factory',
+    'aluno/notas/notas.service',
+    'aluno/notas/notas-avaliacoes-detalhes.controller'
+], function () {
+
+    'use strict';
+
+    angular.module('eduNotasModule')
+        .controller('EduNotasEtapasListaControlller', EduNotasEtapasListaControlller);
+
+    EduNotasEtapasListaControlller.$inject = [
+        '$filter',
+        'i18nFilter',
+        'TotvsDesktopContextoCursoFactory',
+        'EduNotasFactory',
+        '$compile',
+        '$scope',
+        'MatriculaDisciplinaService',
+        'EduNotasService',
+        '$rootScope',
+        'eduUtilsService'
+    ];
+
+    /**
+     *
+     *
+     * @param {any} $filter - Filter
+     * @param {any} i18nFilter - Filter i18n
+     * @param {any} TotvsDesktopContextoCursoFactory - Factory TotvsDesktop
+     * @param {any} EduNotasFactory - Factory de Notas
+     * @param {any} $compile - Compile angular
+     * @param {any} $scope - Scope angular
+     * @param {any} MatriculaDisciplinaService - Service de Matrícula/Disciplina
+     * @param {any} EduNotasService - Service de Notas
+     * @param {any} $rootScope - RootScope angular
+     * @param {any} eduUtilsService - Service de utilitários
+     */
+    function EduNotasEtapasListaControlller(
+        $filter,
+        i18nFilter,
+        TotvsDesktopContextoCursoFactory,
+        EduNotasFactory,
+        $compile,
+        $scope,
+        MatriculaDisciplinaService,
+        EduNotasService,
+        $rootScope,
+        eduUtilsService
+    ) {
+
+        var self = this,
+            defColunas = [];
+        self.notas = [];
+        self.gridOptions = [];
+        self.abrirDetalhesDisciplina = abrirDetalhesDisciplina;
+        self.abrirDetalhesAvaliacao = abrirDetalhesAvaliacao;
+        self.buscaNotas = buscaNotas;
+        self.onData = onData;
+        self.disciplina = null;
+        self.refresh = false;
+
+    		// Assina o evento de alteração de período
+    		$scope.$on('alteraPeriodoLetivoEvent', function () {
+    			self.refresh = true;
+    			buscaNotas();
+    		});        
+
+	      // *********************************************************************************
+	      // *** Functions
+        // *********************************************************************************
+                
+        /**
+         * Realiza a busca pelos dados de nota do aluno no contexto selecionado
+         */
+        function buscaNotas() {
+
+            EduNotasFactory.retornarNotasEtapaAluno({idTurmaDisc : self.disciplina},
+                function (result) {
+                    self.notas = [];
+
+                    if (result['Notas']) {
+                      result['Notas'].forEach(function (valor) {
+                          valor.verAvaliacao = 'Ver avaliações';
+                          self.notas.push(valor);
+                      });
+                    }
+
+                    if (self.notas.length > 0) {
+                        defColunas = configuraColunasGrid(self.notas[0]);
+                    }
+
+                    self.gridOptions = {
+                        columns: defColunas,
+                        dataSource: {
+                            data: self.notas,
+                            sortable: true
+                        },
+                        sortable: true,
+                        reorderable: true,
+                        selectable: false,
+                        resizable: true,
+                        groupable: {
+                            messages: {
+                                empty: $filter('i18n')('grid-agrupamento-vazio')
+                            }
+                        },
+                    };
+
+                    criaGrid();
+                });
+        }
+
+        /**
+         * Evento disparado ao quando está ocorrendo a vinculação dos dados a partir da fonte de dados.
+         *
+         * @param {any} event - atributos do evento
+         */
+        function onDataBound(event) {
+
+            var grid = self.myGrid;
+            if (grid) {
+                for (var i = 0; i < grid.columns.length; i++) {
+                    grid.showColumn(i);
+                }
+                // Percorremos as colunas que estão agrupadas, que são identificadas pela
+                // class k-group-indicator, dessa forma aplicamos o hide.
+                $('div.k-group-indicator').each(function (i, v) {
+                    if (v.offsetParent) {
+                        var fieldName = $(v).data('field').toString().replace(/'/g, '\"');
+                        grid.hideColumn(fieldName);
+                    }
+                });
+            }
+        }
+
+        /**
+         * Evento disparado ao realizar o carregamento dos dados.
+         *
+         * @param {any} data - atributos do evento
+         */
+        function onData(data) {
+            var grid = self.myGrid;
+            if (grid) {
+                grid.bind('dataBound', onDataBound);
+            }
+        }
+
+        /**
+         * Realiza a configuração das colunas que serão apresentadas no grid
+         * de forma dinâmica
+         * @param {any} valor - valor da coluna: valor<chave>
+         * @returns Coluna configurada
+         */
+        function configuraColunasGrid(valor) {
+
+            var coluna, colunaConfig = [];
+
+            for (coluna in valor) {
+
+                if (valor.hasOwnProperty(coluna) &&
+                    (coluna.indexOf('$') === -1)) {
+
+
+                    var nomeColuna = buscaColunaDescricao(coluna);
+                    coluna = coluna.replace('#', '');
+
+                    switch (coluna) {
+                        case 'IDTURMADISC':
+                        case 'CODDISC':
+                            continue;
+                        case 'verAvaliacao':
+                            if (angular.isDefined($rootScope.objPermissions.EDU_ACADEMICO_CENTRALALUNO_NOTAS_NOTASAVALIACOES)) {
+                                colunaConfig.push({
+                                    width: '120px',
+                                    field: '',
+                                    title: '&nbsp',
+                                    template: formatarTemplateVerAvaliacoes(),
+                                    attributes: {
+                                        'class': 'gridRow textAlignCenter'
+                                    },
+                                    groupable: false
+                                });
+                            }
+                            break;
+                        case 'DISCIPLINA':
+                            colunaConfig.push({
+                                field: coluna,
+                                width: '300px',
+                                title: nomeColuna,
+                                template: formatarTemplateDisciplinas(),
+                                attributes: atributosBase(),
+                                groupHeaderTemplate: formatarCabecalhoGrupo
+                            });
+                            break;
+                        case 'FILIAL':
+                            colunaConfig.push({
+                                width: '120px',
+                                field: coluna,
+                                title: nomeColuna,
+                                template: formatarTemplateGeral(coluna),
+                                attributes: {
+                                    'class': 'gridRow textAlignCenter'
+                                },
+                                groupHeaderTemplate: buscaColunaDescricao('FILIAL') + ': #=value#'
+                            });
+                            break;
+                        case 'CODTURMA':
+                            colunaConfig.push({
+                                width: '120px',
+                                field: coluna,
+                                title: nomeColuna,
+                                template: formatarTemplateGeral(coluna),
+                                attributes: {
+                                    'class': 'gridRow textAlignCenter'
+                                },
+                                groupHeaderTemplate: buscaColunaDescricao('CODTURMA') + ': #=value#'
+                            });
+                            break;
+                        case 'SITUACAO':
+                            colunaConfig.push({
+                                width: '120px',
+                                field: '["' + coluna + '"]',
+                                title: nomeColuna,
+                                template: formatarTemplateNotas(coluna),
+                                attributes: {
+                                    'class': 'gridRow textAlignLeft'
+                                },
+                                groupHeaderTemplate: buscaColunaDescricao('CODTURMA') + ': #=value#'
+                            });
+                            break;
+                        default:
+                            colunaConfig.push({
+                                width: '120px',
+                                field: '["' + coluna + '"]',
+                                title: nomeColuna,
+                                template: formatarTemplateNotas(coluna),
+                                groupable: false,
+                                attributes: {
+                                    'class': 'gridRow textAlignCenter'
+                                }
+                            });
+                    }
+                }
+            }
+
+            return colunaConfig;
+        }
+
+        /**
+         * Busca a descrição das colunas que será o cabeçalho apresentado no grid.
+         *
+         * @param {any} colunaNome - Nome da coluna
+         * @returns Descrição da coluna
+         */
+        function buscaColunaDescricao(colunaNome) {
+
+            var descricaoColuna,
+                colunasFixas = {
+                    'CODDISC': $filter('i18n')('l-codigo-disciplina', [], 'js/aluno/notas/'),
+                    'DISCIPLINA': $filter('i18n')('l-disciplina', [], 'js/aluno/notas/'),
+                    'SITUACAO': $filter('i18n')('l-situacao', [], 'js/aluno/notas/'),
+                    'CODTURMA': $filter('i18n')('l-codigo-turma', [], 'js/aluno/notas/'),
+                    'FILIAL': $filter('i18n')('l-filial', [], 'js/aluno/notas/')
+                };
+
+            descricaoColuna = colunasFixas[colunaNome];
+
+            // Caso não seja uma coluna fixa, deverá buscar a descrição da etapa
+            // como título da coluna
+            if (!descricaoColuna) {
+                descricaoColuna = colunaNome;
+            }
+            return descricaoColuna;
+        }
+
+        /**
+         * Cria o elemento grid na tela
+         */
+        function criaGrid() {
+            $('#MYGRID').empty();
+            // cria o elemento através do angular.
+            var grid = angular.element('<totvs-grid></totvs-grid>');
+
+            // adiciona o atributo grid-options com as configurações do grid
+            grid.attr('grid-options', 'controller.gridOptions');
+            grid.attr('grid', 'controller.myGrid');
+            grid.attr('on-data', 'controller.onData(data)');
+
+            $('#MYGRID').css('padding-top', '10px');
+
+            // insere o elemento na div
+            grid = $('#MYGRID').append(grid);
+
+            // compila o elemento na tela.
+            grid = $compile(grid)($scope);
+        }
+
+        /**
+         * Abri o modal de Detalhes da Disciplina
+         *
+         * @param {any} idTurmaDisc - Identificador de turma disciplina
+         */
+        function abrirDetalhesDisciplina(idTurmaDisc) {
+            var contexto, codColigada, ra;
+
+            contexto = TotvsDesktopContextoCursoFactory.getCursoSelecionado();
+            codColigada = contexto.cursoSelecionado.CODCOLIGADA;
+            ra = contexto.cursoSelecionado.RA;
+            MatriculaDisciplinaService.exibirDetalhesMatriculaDisciplina(codColigada, idTurmaDisc, ra);
+        }
+
+        /**
+         * Abri o modal de Detalhes da Avaliação
+         *
+         * @param {any} idTurmaDisc - Identificador da turma disciplina
+         */
+        function abrirDetalhesAvaliacao(idTurmaDisc) {
+            EduNotasService.exibirNotasAvaliacoesDetalhes(idTurmaDisc);
+        }
+
+        /**
+         * Formata o template para o título das colunas
+         *
+         * @param {any} nomeColuna - Nome da coluna
+         * @returns
+         */
+        function formatarTituloColuna(nomeColuna) {
+            return ('<span>' + nomeColuna + '</span>');
+        }
+
+        /**
+         * Formatar o template de notas
+         *
+         * @param {any} coluna - Nome da coluna
+         * @returns Coluna formatada
+         */
+        function formatarTemplateNotas(coluna) {
+            return ('#=data["' + coluna + '"] ? data["' + coluna + '"] : \'\'#');
+        }
+
+        /**
+         * Formata o template de ver avaliações
+         *
+         * @returns Coluna formatada
+         */
+        function formatarTemplateVerAvaliacoes() {
+            return ('<a ng-click="controller.abrirDetalhesAvaliacao(#:data.IDTURMADISC#)" >' +
+                ' #:data.verAvaliacao#</a>');
+        }
+
+        /**
+         * Formata o template geral
+         *
+         * @param {any} coluna - Nome da coluna
+         * @returns Coluna formatada
+         */
+        function formatarTemplateGeral(coluna) {
+            return ('<span data-tooltip="#:data["' + coluna + '"]#" tooltip-placement="left" tooltip-append-to-body="appendToBody=true">' +
+                '#:data["' + coluna + '"]# </span>');
+        }
+
+        /**
+         * Formata o template de disciplinas
+         *
+         * @returns Coluna formatada
+         */
+        function formatarTemplateDisciplinas() {
+            return ('<a ng-click="controller.abrirDetalhesDisciplina(#:data.IDTURMADISC#)" ' +
+                ' data-tooltip="#:data.DISCIPLINA#" tooltip-placement="left" tooltip-append-to-body="appendToBody=true">' +
+                '#:data.DISCIPLINA#</a>');
+        }
+
+        /**
+         * Retorna os atributos padrões do grid
+         *
+         * @returns Atributos base da coluna
+         */
+        function atributosBase() {
+            return {
+                'class': 'gridRow'
+            };
+        }
+
+        /**
+         * Retorna o identificador da turma disciplina de acordo com a disciplina passada por parâmetro
+         *
+         * @param {string} disciplina - Nome da disciplina
+         * @returns Id. Turma Disciplina
+         */
+        function retornaIdTurmaDisc(disciplina) {
+            var idTurmaDisc = 0,
+                disciplinaObjeto = $.grep(self.notas, function (e) {
+                    return e.DISCIPLINA === disciplina;
+                });
+
+            if (disciplinaObjeto && disciplinaObjeto.length > 0) {
+                idTurmaDisc = disciplinaObjeto[0].IDTURMADISC;
+            }
+            return idTurmaDisc;
+        }
+
+        /**
+         * Formata o cabeçalho da coluna de agrupamento
+         *
+         * @param {any} item - Objeto de item
+         * @returns Cabeçalho formatado
+         */
+        function formatarCabecalhoGrupo(item) {
+            return '<a tooltip-append-to-body="appendToBody=true" ' +
+                'tooltip-placement="left" data-tooltip="' + eduUtilsService.escapeHtml(item.value) + '"' +
+                'ng-click="controller.abrirDetalhesDisciplina(' + retornaIdTurmaDisc(item.value) + ')"> Disciplina: ' +
+                eduUtilsService.escapeHtml(item.value) + '</a>';
+        }
+    }
+});
